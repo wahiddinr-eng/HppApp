@@ -1,0 +1,70 @@
+import {test,expect} from "@playwright/test";
+import {createHmac,randomUUID} from "node:crypto";
+import {readFile} from "node:fs/promises";
+test.skip(!process.env.HPP_TEST_DATABASE_URL,"A local hpp_test database is required.");
+test("Buyer and admin workflows work on desktop and mobile",async({page,context})=>{
+  const dbUrl=new URL(process.env.HPP_TEST_DATABASE_URL!);
+  expect(["localhost","127.0.0.1"]).toContain(dbUrl.hostname);expect(dbUrl.pathname).toMatch(/^\/hpp_test(?:_|$)/);
+  const {auth}=await import("../../src/server/auth");
+  const {getPool,query}=await import("../../src/server/db");
+  const {getMigrations}=await import("better-auth/db/migration");
+  const {processOneWebhook}=await import("../../src/server/worker");
+  const {requestActivation}=await import("../../src/server/account");
+  const email="browser-"+randomUUID()+"@example.test";
+  const password="browser-test-password-123";
+  const runtimeErrors:string[]=[];page.on("pageerror",error=>runtimeErrors.push(error.message));
+  try{
+    await (await getMigrations(auth.options)).runMigrations();
+    await query(await readFile(new URL("../../db/domain.sql",import.meta.url),"utf8"));
+    await page.goto("/app/calculations");await expect(page).toHaveURL(/\/login$/);
+    const purchaseId="browser-"+randomUUID();
+    const payload={schema_version:"1",event_id:randomUUID(),type:"purchase.paid",source:"browser-test",occurred_at:new Date().toISOString(),purchase:{id:purchaseId,state_version:1,payment_status:"paid",currency:"IDR",amount_paid:"100000",customer:{email,name:"Pembeli browser"},items:[{id:"one",product_id:"ai-food",quantity:1,access_status:"paid"}]}};
+    const raw=JSON.stringify(payload);const timestamp=String(Math.floor(Date.now()/1000));
+    const webhook=await page.request.post("/api/webhooks/purchases",{data:raw,headers:{"Content-Type":"application/json","X-HPP-Key-Id":"test","X-HPP-Timestamp":timestamp,"X-HPP-Signature":"sha256="+createHmac("sha256","browser-test-webhook-secret-32-characters").update(timestamp+"."+raw).digest("hex")}});
+    expect(webhook.status()).toBe(202);
+    while(await processOneWebhook()){}
+    const owner=(await query("SELECT user_id FROM access_grant WHERE purchase_id=$1",[purchaseId])).rows[0].user_id;
+    await requestActivation(owner);
+    const emailJob=(await query("SELECT payload FROM email_outbox WHERE user_id=$1 AND kind='activation' ORDER BY created_at DESC LIMIT 1",[owner])).rows[0];
+    const token=new URL(emailJob.payload.url).searchParams.get("token");
+    await page.goto("/activate?token="+token);
+    await expect(page.getByRole("textbox",{name:"Alamat email"})).toHaveValue(email);
+    await page.getByLabel("Password baru",{exact:true}).fill(password);await page.getByLabel("Konfirmasi password").fill(password);
+    await page.getByRole("button",{name:"Aktifkan akun",exact:true}).click();await expect(page.getByRole("status")).toContainText("berhasil diaktifkan");
+    await page.getByRole("link",{name:"Kembali masuk"}).click();
+    await page.getByLabel("Alamat email").fill(email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();
+    await expect(page).toHaveURL(/\/app\/calculations$/);await page.getByRole("link",{name:"Perhitungan baru",exact:true}).first().click();
+    await page.locator("#name").fill("Brownies browser");await page.locator("#business").fill("Dapur pengujian");await page.locator("#batch").fill("10");
+    await page.locator("#ingredient-0-name").fill("Bahan brownies");await page.locator("#ingredient-0-quantity").fill("1");await page.locator("#ingredient-0-price").fill("100000");
+    await page.getByRole("button",{name:"Tidak ada biaya",exact:true}).nth(0).click();await page.getByRole("button",{name:"Tidak ada biaya",exact:true}).nth(1).click();await page.getByRole("button",{name:"Tidak ada biaya",exact:true}).nth(2).click();
+    await expect(page.locator(".draft-badge")).toContainText("Tersimpan di server",{timeout:15000});
+    await page.getByRole("button",{name:"Hitung dan simpan"}).click();await expect(page).toHaveURL(/\/report\?revision=1$/);
+    await expect(page.locator(".report-primary-metric")).toContainText("Rp10.000");
+    for(const [label,extension]of [["Ekspor PDF",".pdf"],["Ekspor Excel",".xlsx"]]){
+      const downloadPromise=page.waitForEvent("download");await page.getByRole("button",{name:label}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toContain(extension);expect(await download.failure()).toBeNull();
+    }
+    const id=page.url().split("/").at(-2)!;
+    await page.getByRole("link",{name:"Edit",exact:true}).click();
+    await page.locator("textarea").fill("Draft belum final");await expect(page.locator(".draft-badge")).toContainText("Tersimpan di server");
+    const other=await context.newPage();await other.goto("/app/calculations/"+id+"/edit");await other.locator("textarea").fill("Perubahan tab lain");await expect(other.locator(".draft-badge")).toContainText("Tersimpan di server");
+    await page.locator("#name").fill("Input tab pertama");await expect(page.locator(".form-message[role=alert]")).toContainText("Draft diubah di tab lain",{timeout:15000});
+    await page.getByRole("button",{name:"Simpan sebagai baru",exact:true}).click();await expect(page.getByRole("status")).toContainText("Salinan baru tersimpan");await other.close();
+    await page.setViewportSize({width:390,height:844});await page.goto("/app/calculations");
+    await expect(page.getByRole("heading",{name:"Selamat datang di ruang hitung Anda"})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.goto("/app/calculations/new");await expect(page.getByRole("heading",{name:"Produk & produksi",exact:true})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.goto("/app/calculations/"+id+"/report?revision=1");await expect(page.locator(".report-primary-metric")).toContainText("Rp10.000");
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.goto("/app/profile");await page.getByLabel("Nama usaha atau UMKM").fill("Usaha default");await page.getByRole("button",{name:"Simpan profil",exact:true}).click();await expect(page.getByRole("status")).toContainText("Profil tersimpan");
+    // Mobile logout is also available from the profile page.
+    await page.getByRole("button",{name:"Keluar akun",exact:true}).last().click();await expect(page).toHaveURL(/\/login$/);
+    const admin=await auth.api.createUser({body:{email:"browser-admin-"+randomUUID()+"@example.test",password,name:"Admin browser",role:"admin"}});
+    await query("INSERT INTO user_profile(user_id,account_status,role) VALUES($1,'active','admin')",[admin.user.id]);
+    await page.getByLabel("Alamat email").fill(admin.user.email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();await expect(page).toHaveURL(/\/admin\/access$/);
+    await page.getByRole("searchbox").fill(email);await expect(page.getByRole("heading",{name:email,exact:true})).toBeVisible();
+    page.once("dialog",dialog=>dialog.accept("Pengujian pencabutan akses"));await page.getByRole("button",{name:"Cabut akses",exact:true}).click();await expect(page.getByRole("status")).toContainText("diaudit");await expect(page.getByRole("button",{name:"Pulihkan akses",exact:true})).toBeVisible();
+    await page.getByRole("link",{name:"Integrasi",exact:true}).last().click();await expect(page.getByRole("heading",{name:"Inbox webhook"})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(runtimeErrors).toEqual([]);
+  }finally{await getPool().end();}
+});

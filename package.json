@@ -1,0 +1,46 @@
+{
+  "name": "kalkulator-hpp-kuliner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "worker": "tsx --env-file=.env.local scripts/worker.ts",
+    "smtp:verify": "tsx --env-file=.env.local scripts/verify-smtp.ts",
+    "admin:create": "tsx --env-file=.env.local scripts/create-admin.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "better-auth": "1.7.7",
+    "decimal.js": "10.6.0",
+    "exceljs": "4.4.0",
+    "lucide-react": "0.468.0",
+    "next": "16.3.8",
+    "nodemailer": "10.0.13",
+    "pdfkit": "0.20.2",
+    "pg": "8.23.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "4.6.5"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.19.15",
+    "@types/pdfkit": "0.17.6",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

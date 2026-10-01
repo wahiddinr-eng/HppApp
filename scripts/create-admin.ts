@@ -1,0 +1,12 @@
+import { auth } from "../src/server/auth";
+import { getPool,query,requireBackendConfig } from "../src/server/db";
+requireBackendConfig();
+const email=process.env.ADMIN_EMAIL?.trim().toLowerCase();const password=process.env.ADMIN_PASSWORD;
+if(!email||!password||password.length<12||password.length>128)throw new Error("Isi ADMIN_EMAIL dan ADMIN_PASSWORD (12–128 karakter) dalam lingkungan lokal.");
+const existing=await query('SELECT id FROM "user" WHERE email=$1',[email]);
+if(existing.rowCount)throw new Error("Email sudah terdaftar. Bootstrap tidak menimpa akun existing.");
+const {user}=await auth.api.createUser({body:{email,password,name:process.env.ADMIN_NAME||"Admin",role:"admin",data:{emailVerified:true}}});
+await query("INSERT INTO user_profile(user_id,account_status,role,display_name) VALUES($1,'active','admin',$2)",[user.id,user.name]);
+await query("INSERT INTO audit_log(actor_id,action,target,reason) VALUES($1,'bootstrap_admin',$1,'Bootstrap CLI lokal')",[user.id]);
+console.log("Admin berhasil dibuat.");
+await getPool().end();
