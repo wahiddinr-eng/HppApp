@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { generateActivationLink } from "@/server/account";
 import { query,transaction } from "@/server/db";
 import { enqueueEmail } from "@/server/email";
 import { apiError,checkOrigin,DomainError,privateJson,readJson,requireActor } from "@/server/http";
@@ -39,9 +40,14 @@ export async function GET(request:Request,{params}:{params:Promise<{area:string}
 }catch(error){return apiError(error);}}
 export async function POST(request:Request,{params}:{params:Promise<{area:string}>}){try{
   checkOrigin(request);const actor=await requireActor(request,"admin");const {area}=await params;
-  const parsed=z.object({action:z.enum(["revoke","restore","resend_activation","retry"]),id:z.string().min(1).max(128),reason:z.string().trim().min(5).max(500),kind:z.enum(["webhook","email"]).optional()}).safeParse(await readJson(request,4096));
+  const parsed=z.object({action:z.enum(["revoke","restore","resend_activation","generate_activation_link","retry"]),id:z.string().min(1).max(128),reason:z.string().trim().min(5).max(500),kind:z.enum(["webhook","email"]).optional()}).safeParse(await readJson(request,4096));
   if(!parsed.success)throw new DomainError(422,"ADMIN_REASON_REQUIRED","Tindakan, ID, dan alasan minimal 5 karakter diperlukan.");const body=parsed.data;
   await rateLimit("admin:"+actor.id,30,60);
+  if(area==="access"&&body.action==="generate_activation_link"){
+    await rateLimit("admin-activation-link:"+body.id,3,3600);
+    const link=await generateActivationLink(body.id,actor.id,body.reason);
+    return privateJson({message:"Tautan aktivasi baru dibuat dan dicatat dalam audit.",...link});
+  }
   await transaction(async client=>{
     if(area==="access"&&(body.action==="revoke"||body.action==="restore")){
       if(!z.uuid().safeParse(body.id).success)throw new DomainError(404,"NOT_FOUND","Grant tidak ditemukan.");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock3, Mail, RefreshCw, Search, ShieldCheck, Webhook } from "lucide-react";
+import { Clock3, Copy, Link2, Mail, RefreshCw, Search, ShieldCheck, Webhook, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { featureLabel, groupAccessGrants, type AdminGrant } from "@/lib/admin-access";
 import { PageTop } from "./shell";
@@ -11,6 +11,7 @@ type Account = { id:string;email:string;name:string;account_status:string;grants
 type Job = { id:string;source?:string;event_id?:string;purchase_id?:string;kind?:string;recipient?:string;
   status:string;stage?:string;attempts:number;last_error:string|null;created_at:string;next_attempt:string };
 type Data = { accounts?:Account[];events?:Job[];emails?:Job[];worker?:{name:string;last_seen:string}[] };
+type ActivationLink = {email:string;url:string;expiresAt:string};
 
 const date=(value:string)=>new Date(value).toLocaleString("id-ID",{timeZone:"Asia/Makassar",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 const accountStatus=(status:string)=>status==="active"?"Aktif":status==="pending_activation"?"Menunggu aktivasi":status==="suspended"?"Ditangguhkan":status;
@@ -25,6 +26,7 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
   const [notice,setNotice]=useState("");
   const [busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
+  const [activationLink,setActivationLink]=useState<ActivationLink>();
   const load=useCallback(async()=>{
     setLoading(true);
     try { setData(await api<Data>("/api/admin/"+area+"?"+new URLSearchParams({search}))); }
@@ -33,13 +35,20 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
   },[area,search]);
   useEffect(()=>{const timer=setTimeout(()=>void load(),250);return()=>clearTimeout(timer);},[load]);
   async function act(action:string,id:string,kind?:string){
-    const reason=window.prompt("Tuliskan alasan tindakan (minimal 5 karakter). Semua tindakan diaudit.");
+    const reason=window.prompt(action==="generate_activation_link"?"Alasan membuat tautan aktivasi baru (minimal 5 karakter). Tautan lama akan dibatalkan dan tindakan ini diaudit.":"Tuliskan alasan tindakan (minimal 5 karakter). Semua tindakan diaudit.");
     if(reason===null)return;
     if(reason.trim().length<5){setNotice("Alasan minimal 5 karakter.");return;}
     setBusy(true);setNotice("");
-    try { const result=await api<{message:string}>("/api/admin/"+area,{method:"POST",body:JSON.stringify({action,id,reason,kind})});setNotice(result.message);await load(); }
+    try { const result=await api<{message:string}&Partial<ActivationLink>>("/api/admin/"+area,{method:"POST",body:JSON.stringify({action,id,reason,kind})});
+      if(action==="generate_activation_link"&&result.email&&result.url&&result.expiresAt)setActivationLink({email:result.email,url:result.url,expiresAt:result.expiresAt});
+      setNotice(result.message);await load(); }
     catch(error){setNotice(error instanceof Error?error.message:"Tindakan gagal.");}
     finally{setBusy(false);}
+  }
+  async function copyActivationLink(){
+    if(!activationLink)return;
+    try { await navigator.clipboard.writeText(activationLink.url);setNotice("Tautan disalin. Kirim hanya kepada pemilik email akun tersebut."); }
+    catch { setNotice("Gagal menyalin otomatis. Pilih dan salin tautan pada kotak secara manual."); }
   }
   const jobs=(rows:Job[]|undefined,kind:"webhook"|"email")=><div className={styles.tableWrap}><table className={styles.table}>
     <thead><tr><th>{kind==="webhook"?"Event / pembelian":"Jenis / penerima"}</th><th>Status</th><th>Waktu</th><th>Detail</th><th>Tindakan</th></tr></thead>
@@ -57,14 +66,19 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
       actions={<button className="button secondary" disabled={loading} onClick={()=>void load()}><RefreshCw size={15}/>{loading?"Memuat...":"Perbarui data"}</button>}/>
     {notice&&<div className="form-message" role="status">{notice}</div>}
     {area==="access"?<>
-      <div className={styles.search}><Search size={18}/><label htmlFor="admin-account-search">Cari pengguna</label><input id="admin-account-search" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Masukkan email customer..."/></div>
+      {activationLink&&<section className={styles.activationBox} aria-label="Tautan aktivasi cadangan">
+        <div className={styles.activationHead}><Link2 size={20}/><div><strong>Tautan aktivasi cadangan siap disalin</strong><small>Untuk {activationLink.email} · Berlaku sampai {date(activationLink.expiresAt)} WITA</small></div><button type="button" onClick={()=>setActivationLink(undefined)} aria-label="Tutup tautan aktivasi"><X size={17}/></button></div>
+        <p>Tautan hanya ditampilkan di sini setelah dibuat. Tautan aktivasi sebelumnya tidak berlaku lagi. Bagikan secara pribadi kepada pemilik akun, bukan di grup atau halaman publik.</p>
+        <div className={styles.activationActions}><input type="url" aria-label="Tautan aktivasi cadangan" value={activationLink.url} readOnly onFocus={event=>event.target.select()}/><button type="button" className="button primary" onClick={()=>void copyActivationLink()}><Copy size={15}/>Salin tautan</button></div>
+      </section>}
+      <div className={styles.search}><Search size={18}/><label htmlFor="admin-account-search">Cari pengguna</label><input id="admin-account-search" type="search" value={search} onChange={event=>{setSearch(event.target.value);setActivationLink(undefined);}} placeholder="Masukkan email customer..."/></div>
       <p className={styles.helper}>Menampilkan maksimal 50 akun. Hak Kalkulator HPP dan Galeri Prompt dikelompokkan per pembelian.</p>
       {data?.accounts?.map(user=>{
         const purchases=groupAccessGrants(user.grants);
         return <section className={styles.account} key={user.id}>
           <header className={styles.accountHead}><span className={styles.avatar}>{(user.name||user.email).slice(0,2).toUpperCase()}</span><div><h2>{user.name||user.email}</h2><p>{user.email}</p></div>
             <span className={`${styles.status} ${user.account_status==="active"?styles.good:styles.wait}`}>{accountStatus(user.account_status)}</span>
-            {user.account_status==="pending_activation"&&<button className="button secondary" disabled={busy} onClick={()=>void act("resend_activation",user.id)}>Kirim ulang aktivasi</button>}
+            {user.account_status==="pending_activation"&&<><button className="button secondary" disabled={busy} onClick={()=>void act("resend_activation",user.id)}>Kirim ulang email</button><button className="button primary" disabled={busy} onClick={()=>void act("generate_activation_link",user.id)}>Buat tautan aktivasi</button></>}
           </header>
           <div className={styles.accountBody}><div className={styles.sectionTitle}><ShieldCheck size={16}/><strong>{purchases.length} pembelian terhubung</strong></div>
             {purchases.length?purchases.map(purchase=><div className={styles.purchase} key={JSON.stringify([purchase.source,purchase.purchaseId])}>

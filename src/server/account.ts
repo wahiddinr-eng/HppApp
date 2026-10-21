@@ -1,3 +1,4 @@
+import { betterAuth } from "better-auth";
 import { activationAuth, auth } from "./auth";
 import { query, transaction } from "./db";
 import { tokenHash } from "./email";
@@ -9,6 +10,33 @@ export async function requestActivation(userId:string) {
   const user=result.rows[0];
   if(user?.account_status!=="pending_activation") return;
   await activationAuth.api.requestPasswordReset({body:{email:user.email,redirectTo:process.env.APP_BASE_URL+"/activate"}});
+}
+export async function generateActivationLink(userId:string,actorId:string,reason:string) {
+  const result=await query<{email:string;account_status:string;role:string}>('SELECT u.email,p.account_status,p.role FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE u.id=$1',[userId]);
+  const user=result.rows[0];
+  if(!user || user.role!=="user" || user.account_status!=="pending_activation") throw new DomainError(422,"NOT_PENDING","Hanya akun customer yang menunggu aktivasi dapat dibuatkan tautan.");
+  const capture:{token?:string}={};
+  // Let Better Auth create its own verification record; this callback deliberately does not send an email.
+  const linkAuth=betterAuth({...activationAuth.options,emailAndPassword:{...activationAuth.options.emailAndPassword,
+    sendResetPassword:async({user:target,token})=>{if(target.id===userId)capture.token=token;}
+  }});
+  await linkAuth.api.requestPasswordReset({body:{email:user.email,redirectTo:process.env.APP_BASE_URL+"/activate"}});
+  if(!capture.token) throw new DomainError(503,"ACTIVATION_LINK_FAILED","Tautan belum dapat dibuat. Coba lagi.");
+  const token=capture.token;
+  const expiresAt=await transaction(async client=>{
+    const state=await client.query('SELECT account_status,role FROM user_profile WHERE user_id=$1 FOR UPDATE',[userId]);
+    if(state.rows[0]?.role!=="user" || state.rows[0]?.account_status!=="pending_activation") throw new DomainError(422,"NOT_PENDING","Akun tidak lagi menunggu aktivasi.");
+    // The worker locks activation_request before issuing an email token. Take that row first to avoid a lock cycle.
+    await client.query("UPDATE email_outbox SET status='cancelled',payload=NULL WHERE user_id=$1 AND kind='activation_request' AND status IN ('pending','failed')",[userId]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`account-email:${userId}:activation`]);
+    await client.query("UPDATE account_token SET revoked_at=now() WHERE user_id=$1 AND kind='activation' AND consumed_at IS NULL AND revoked_at IS NULL",[userId]);
+    await client.query("UPDATE email_outbox SET status='cancelled',payload=NULL WHERE user_id=$1 AND kind='activation' AND status IN ('pending','failed')",[userId]);
+    const issued=await client.query<{expires_at:Date}>("INSERT INTO account_token(token_hash,user_id,kind,expires_at) VALUES($1,$2,'activation',now()+interval '24 hours') RETURNING expires_at",[tokenHash(token),userId]);
+    await client.query("INSERT INTO audit_log(actor_id,action,target,reason) VALUES($1,'generate_activation_link',$2,$3)",[actorId,userId,reason]);
+    return issued.rows[0].expires_at;
+  });
+  const url=new URL("/activate",process.env.APP_BASE_URL);url.searchParams.set("token",token);
+  return {email:user.email,url:url.toString(),expiresAt:expiresAt.toISOString()};
 }
 export async function tokenInfo(token:string,kind:string) {
   if(token.length<10||token.length>256) throw new DomainError(400,"INVALID_TOKEN","Tautan tidak valid atau kedaluwarsa.");

@@ -276,6 +276,35 @@ test("Backend integration: webhook, activation, access, revisions and admin", {s
       const listing=await adminRoute.GET(request("/api/admin/access",undefined,adminCookie),params({area:"access"}));assert.equal(listing.status,200);
       const text=await listing.text();assert.ok(!text.includes("draft_input")&&!text.includes("password"));
     });
+    await t.test("Admin backup activation link is private, one-use, and valid for 24 hours",async()=>{
+      const pending=await auth.api.createUser({body:{email:"manual-"+suffix+"@example.test",name:"Aktivasi manual"}});
+      await query("INSERT INTO user_profile(user_id) VALUES($1)",[pending.user.id]);
+      await requestActivation(pending.user.id);
+      const oldJob=(await query("SELECT id,payload FROM email_outbox WHERE user_id=$1 AND kind='activation' ORDER BY created_at DESC LIMIT 1",[pending.user.id])).rows[0];
+      await enqueueEmail("activation_request",pending.user.id,pending.user.email,process.env.APP_BASE_URL+"/activate","manual-request:"+suffix);
+      const oldToken=new URL(oldJob.payload.url).searchParams.get("token")!;
+      const body={action:"generate_activation_link",id:pending.user.id,reason:"Pengiriman manual kepada pembeli"};
+      assert.equal((await adminRoute.POST(request("/api/admin/access",body,cookie),params({area:"access"}))).status,403);
+      const response=await adminRoute.POST(request("/api/admin/access",body,adminCookie),params({area:"access"}));
+      assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"private, no-store");
+      const generated=await response.json();const token=new URL(generated.url).searchParams.get("token")!;
+      assert.equal(new URL(generated.url).pathname,"/activate");assert.equal(generated.email,pending.user.email);
+      assert.ok(new Date(generated.expiresAt).getTime()-Date.now()>23*60*60*1000);
+      assert.ok(new Date(generated.expiresAt).getTime()-Date.now()<=24*60*60*1000);
+      await assert.rejects(()=>tokenInfo(oldToken,"activation"),{code:"INVALID_TOKEN"});
+      assert.equal((await query("SELECT status,payload FROM email_outbox WHERE id=$1",[oldJob.id])).rows[0].status,"cancelled");
+      assert.equal((await query("SELECT payload FROM email_outbox WHERE id=$1",[oldJob.id])).rows[0].payload,null);
+      assert.equal((await query("SELECT status FROM email_outbox WHERE dedup_key=$1",["manual-request:"+suffix])).rows[0].status,"cancelled");
+      assert.equal((await tokenInfo(token,"activation")).email,pending.user.email);
+      const second=await adminRoute.POST(request("/api/admin/access",body,adminCookie),params({area:"access"}));
+      assert.equal(second.status,200);const newer=new URL((await second.json()).url).searchParams.get("token")!;
+      await assert.rejects(()=>tokenInfo(token,"activation"),{code:"INVALID_TOKEN"});
+      await consumeAccountToken(newer,"manual-password-123","activation");
+      await assert.rejects(()=>tokenInfo(newer,"activation"),{code:"INVALID_TOKEN"});
+      assert.equal((await adminRoute.POST(request("/api/admin/access",body,adminCookie),params({area:"access"}))).status,422);
+      const audits=await query("SELECT reason FROM audit_log WHERE actor_id=$1 AND action='generate_activation_link' AND target=$2",[(await requireActor(request("/api/admin/access",undefined,adminCookie),"admin")).id,pending.user.id]);
+      assert.equal(audits.rowCount,2);assert.ok(audits.rows.every(row=>!row.reason.includes(newer)));
+    });
     await t.test("Admin can create, edit, preview and delete private prompt cards",async()=>{
       const promptRoot=await mkdtemp(join(tmpdir(),"hpp-admin-prompts-"));
       process.env.PROMPT_MEDIA_ROOT=promptRoot;

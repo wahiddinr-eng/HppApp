@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, LayoutDashboard, Menu, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
+import { KULINERKIT_WHATSAPP_URL } from "@/lib/support";
+import { BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, LayoutDashboard, Menu, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -47,6 +48,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
       <div className="sidebar-bottom">{user?.role === "user" && <Link href="/app/guide" className={`sidebar-guide${path === "/app/guide" ? " active" : ""}`}><BookOpenText size={19} /><span><b>Panduan penggunaan</b><small>Buka kembali kapan saja</small></span></Link>}
+        {user?.role === "user" && <a className="sidebar-support" href={KULINERKIT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer"><MessageCircle size={18}/><span><b>WhatsApp bantuan</b><small>Tim KulinerKit · 0851 6121 8257</small></span></a>}
         <button className="side-help" onClick={() => void logout()}>Keluar akun</button>{notice && <small role="alert">{notice}</small>}
         <div className="side-profile"><div className="avatar">{(user?.name || "A").slice(0, 2).toUpperCase()}</div><div><b>{user?.name || "Akun"}</b><small>{user?.role === "admin" ? "Administrator" : "Akun pembeli"}</small></div></div>
       </div>

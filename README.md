@@ -16,12 +16,15 @@ Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD 
 - Webhook HMAC dengan batas body, pemeriksaan waktu, inbox durable, dedup, purchase state_version, tombstone refund, dan tinjauan refund sebagian/perubahan email.
 - Worker webhook/email dengan locking, retry eksponensial, heartbeat, dan pembersihan payload token yang selesai/kedaluwarsa.
 - Panel admin terpisah di `/admin`: dashboard jumlah pengguna, pembelian unik, hak aktif, kartu prompt, dan job gagal; halaman pengguna/akses, integrasi/email, serta kartu prompt. Admin tidak dapat melihat resep milik pembeli melalui panel ini.
+- Admin dapat membuat tautan aktivasi cadangan 24 jam bagi customer yang masih menunggu aktivasi dari halaman Pengguna & akses. Tautan hanya ditampilkan sekali untuk disalin dan dibagikan secara pribadi; tautan lama serta email aktivasi yang masih antre dibatalkan. Tindakan dicatat dalam audit tanpa menyimpan tautan mentah.
 
 Sidebar pelanggan diurutkan berdasarkan perjalanan usaha: Beranda → Siapkan Harga → Siapkan Promosi → Pantau Penjualan → Akun. Pada layar ponsel, menu tambahan ada di "Lainnya". Halaman rekap ada di `/app/sales`, dan analisis di `/app/sales/analysis`.
 
 Halaman `/app/ingredients` menyimpan harga per satuan (g, kg, ml, liter, atau buah). Resep yang sudah ada **tidak ditautkan otomatis** berdasarkan nama: buka resep, pilih bahan yang sesuai pada setiap baris, lalu finalkan revisinya sekali. Setelah itu, perubahan harga dari daftar bahan dapat diterapkan ke semua resep aktif yang tertaut dalam satu konfirmasi. Draft diperbarui sebagai draft; menu final mendapatkan revisi final baru. Bila harga jual awal memakai saran otomatis, pembaruan bahan membekukan harga jual sebelumnya sebagai harga pilihan agar harga tidak naik diam-diam; saran harga baru tetap ditampilkan. Resep arsip tidak diperbarui otomatis. Perubahan harga katalog bukan pencatatan stok atau biaya pembelian aktual setiap batch.
 
 Saat customer aktif pertama kali login, aplikasi membuka `/app/guide`. Panduan menampilkan langkah sesuai fitur yang dimiliki akun; tombol **Mulai menggunakan** menyimpan status selesai per akun, sehingga login berikutnya langsung menuju ruang kerja. Panduan tetap dapat dibuka dari bagian bawah sidebar desktop atau menu **Lainnya** di ponsel. Admin tidak diarahkan ke panduan customer.
+
+Di bagian bawah sidebar customer dan menu **Lainnya** pada ponsel tersedia WhatsApp bantuan penggunaan KulinerKit di `0851 6121 8257`. Pesan awal menyebut KulinerKit serta `hpp.lrmobileid.com` agar berbeda dari dukungan checkout LRMobileID.
 
 ## Persiapan lokal
 

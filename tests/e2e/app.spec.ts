@@ -35,6 +35,7 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await page.getByLabel("Alamat email").fill(email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();
     await expect(page).toHaveURL(/\/app\/guide$/);
     await expect(page.getByRole("heading",{name:"Panduan penggunaan"})).toBeVisible();
+    await expect(page.getByRole("link",{name:/WhatsApp bantuan/})).toHaveAttribute("href",/wa\.me\/6285161218257/);
     await page.getByRole("button",{name:"Mulai menggunakan"}).click();
     await expect(page).toHaveURL(/\/app\/calculations$/);await page.getByRole("link",{name:"Perhitungan baru",exact:true}).first().click();
     await page.locator("#name").fill("Brownies browser");await page.locator("#business").fill("Dapur pengujian");await page.locator("#batch").fill("10");
@@ -65,13 +66,22 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await page.goto("/app/calculations/"+id+"/report?revision=1");await expect(page.locator(".report-primary-metric")).toContainText("Rp10.000");
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.goto("/app/profile");await page.getByLabel("Nama usaha atau UMKM").fill("Usaha default");await page.getByRole("button",{name:"Simpan profil",exact:true}).click();await expect(page.getByRole("status")).toContainText("Profil tersimpan");
+    await page.goto("/app/tools");await expect(page.getByRole("link",{name:/WhatsApp bantuan KulinerKit/})).toHaveAttribute("href",/wa\.me\/6285161218257/);
     // Mobile logout is also available from the profile page.
+    await page.goto("/app/profile");
     await page.getByRole("button",{name:"Keluar akun",exact:true}).last().click();await expect(page).toHaveURL(/\/login$/);
     const admin=await auth.api.createUser({body:{email:"browser-admin-"+randomUUID()+"@example.test",password,name:"Admin browser",role:"admin"}});
     await query("INSERT INTO user_profile(user_id,account_status,role) VALUES($1,'active','admin')",[admin.user.id]);
     await page.getByLabel("Alamat email").fill(admin.user.email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole("heading",{name:"Dashboard KulinerKit"})).toBeVisible();
+    const manual=await auth.api.createUser({body:{email:"browser-manual-"+randomUUID()+"@example.test",name:"Manual browser"}});
+    await query("INSERT INTO user_profile(user_id) VALUES($1)",[manual.user.id]);
     await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Pengguna & akses"}).click();
+    await page.getByRole("searchbox").fill(manual.user.email);await expect(page.getByText(manual.user.email,{exact:true}).first()).toBeVisible();
+    page.once("dialog",dialog=>dialog.accept("Cadangan aktivasi untuk pembeli"));await page.getByRole("button",{name:"Buat tautan aktivasi"}).click();
+    const backupLink=page.getByRole("textbox",{name:"Tautan aktivasi cadangan"});await expect(backupLink).toBeVisible();
+    const backupToken=new URL(await backupLink.inputValue()).searchParams.get("token");expect(backupToken).toBeTruthy();
+    expect((await page.request.get("/api/account/token?"+new URLSearchParams({kind:"activation",token:backupToken!}))).status()).toBe(200);
     await page.getByRole("searchbox").fill(email);await expect(page.getByText(email,{exact:true}).first()).toBeVisible();
     page.once("dialog",dialog=>dialog.accept("Pengujian pencabutan akses"));await page.getByRole("button",{name:"Cabut",exact:true}).click();await expect(page.getByRole("status")).toContainText("diaudit");await expect(page.getByRole("button",{name:"Pulihkan",exact:true})).toBeVisible();
     await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Integrasi & email"}).click();await expect(page.getByRole("heading",{name:"Webhook pembelian"})).toBeVisible();

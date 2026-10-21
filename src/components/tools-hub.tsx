@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
+import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
 import { api } from "@/lib/api";
+import { KULINERKIT_WHATSAPP_URL } from "@/lib/support";
 import { PageTop, Shell } from "./shell";
 import styles from "./sales.module.css";
 
@@ -34,9 +35,13 @@ export function ToolsHub() {
     ] },
     { title: "Bantuan", items: role === "user" ? [
       { href: "/app/guide", icon: BookOpenText, title: "Panduan penggunaan", description: "Lihat urutan awal dan cara memakai tiap fitur." },
+      { href: KULINERKIT_WHATSAPP_URL, icon: MessageCircle, title: "WhatsApp bantuan KulinerKit", description: "Hubungi tim bantuan penggunaan aplikasi." },
     ] : [] },
   ];
   return <Shell><PageTop eyebrow="RUANG KERJA" title="Semua menu" description="Pilih alat sesuai tahap usaha yang sedang Anda kerjakan." />
-    <div className={styles.toolSections}>{sections.filter(section => section.items.length).map(section => <section key={section.title}><h2>{section.title}</h2><div>{section.items.map(item => <Link href={item.href} key={item.href}><item.icon size={21} /><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowRight size={16} /></Link>)}</div></section>)}</div>
+    <div className={styles.toolSections}>{sections.filter(section => section.items.length).map(section => <section key={section.title}><h2>{section.title}</h2><div>{section.items.map(item => {
+      const content=<><item.icon size={21} /><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowRight size={16} /></>;
+      return item.href.startsWith("https://")?<a href={item.href} key={item.href} target="_blank" rel="noopener noreferrer">{content}</a>:<Link href={item.href} key={item.href}>{content}</Link>;
+    })}</div></section>)}</div>
   </Shell>;
 }
