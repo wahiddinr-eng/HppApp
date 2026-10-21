@@ -5,10 +5,29 @@ import { apiError,checkOrigin,DomainError,privateJson,readJson,requireActor } fr
 import { rateLimit } from "@/server/rate-limit";
 export async function GET(request:Request,{params}:{params:Promise<{area:string}>}){try{
   await requireActor(request,"admin");const {area}=await params;
+  if(area==="dashboard"){
+    const [metrics,accounts,events,worker]=await Promise.all([
+      query(`SELECT
+        (SELECT count(*)::int FROM user_profile WHERE role='user') AS total_users,
+        (SELECT count(*)::int FROM user_profile WHERE role='user' AND account_status='active') AS active_users,
+        (SELECT count(*)::int FROM user_profile WHERE role='user' AND account_status='pending_activation') AS pending_users,
+        (SELECT count(DISTINCT g.user_id)::int FROM access_grant g JOIN user_profile p ON p.user_id=g.user_id
+          WHERE p.role='user' AND p.account_status='active' AND g.status='active'
+          AND (g.expires_at IS NULL OR g.expires_at>now())) AS users_with_access,
+        (SELECT count(DISTINCT (source,purchase_id))::int FROM access_grant) AS linked_purchases,
+        (SELECT count(*)::int FROM prompt_gallery_card WHERE active) AS active_prompt_cards,
+        (SELECT count(*)::int FROM webhook_event WHERE status='failed') AS failed_webhooks,
+        (SELECT count(*)::int FROM email_outbox WHERE status='failed') AS failed_emails`),
+      query('SELECT u.email,u.name,p.account_status,p.created_at FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 ORDER BY p.created_at DESC LIMIT 5',["user"]),
+      query("SELECT event_id,source,payload->'purchase'->>'id' AS purchase_id,status,stage,created_at FROM webhook_event ORDER BY created_at DESC LIMIT 5"),
+      query("SELECT name,last_seen FROM worker_health ORDER BY name"),
+    ]);
+    return privateJson({metrics:metrics.rows[0],recentAccounts:accounts.rows,recentEvents:events.rows,worker:worker.rows,updatedAt:new Date().toISOString()});
+  }
   if(area==="access"){
     const search=(new URL(request.url).searchParams.get("search")||"").slice(0,254);
-    const accounts=await query('SELECT u.id,u.email,u.name,p.account_status,p.role,p.business_name,p.created_at FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE u.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 50',["%"+search+"%"]);
-    const ids=accounts.rows.map(row=>row.id);const grants=ids.length?await query("SELECT id,user_id,source,purchase_id,item_id,product_id,status,reason,created_at FROM access_grant WHERE user_id=ANY($1::text[]) ORDER BY created_at DESC",[ids]):{rows:[]};
+    const accounts=await query('SELECT u.id,u.email,u.name,p.account_status,p.role,p.business_name,p.created_at FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 AND u.email ILIKE $2 ORDER BY p.created_at DESC LIMIT 50',["user","%"+search+"%"]);
+    const ids=accounts.rows.map(row=>row.id);const grants=ids.length?await query("SELECT id,user_id,source,purchase_id,item_id,product_id,feature_key,status,reason,created_at FROM access_grant WHERE user_id=ANY($1::text[]) ORDER BY created_at DESC",[ids]):{rows:[]};
     return privateJson({accounts:accounts.rows.map(user=>({...user,grants:grants.rows.filter(grant=>grant.user_id===user.id)}))});
   }
   if(area==="integrations"){

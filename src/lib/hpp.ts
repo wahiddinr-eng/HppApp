@@ -5,7 +5,7 @@ Decimal.set({ precision: 60, rounding: Decimal.ROUND_HALF_UP });
 export type Unit = "g" | "kg" | "ml" | "liter" | "buah";
 export type CostStatus = "pending" | "none" | "filled";
 export type TaxMode = "exclusive" | "inclusive";
-export type Ingredient = { id: string; name: string; quantity: string; unit: Unit; price: string };
+export type Ingredient = { id: string; name: string; quantity: string; unit: Unit; price: string; catalogId?: string };
 export type PackageItem = { id: string; name: string; quantity: string; price: string };
 export type LaborItem = { id: string; name: string; people: string; wage: string };
 export type OtherItem = { id: string; type: string; note: string; amount: string };

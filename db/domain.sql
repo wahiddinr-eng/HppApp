@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
   display_name text NOT NULL DEFAULT '', business_name text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS guide_completed_at timestamptz;
 CREATE TABLE IF NOT EXISTS access_grant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id text REFERENCES "user"(id),
   feature_key text NOT NULL DEFAULT 'hpp_calculator', source text NOT NULL,
@@ -55,6 +56,52 @@ CREATE TABLE IF NOT EXISTS calculation_revision (
   formula_version text NOT NULL DEFAULT 'hpp-v1', created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(calculation_id,revision)
 );
+CREATE TABLE IF NOT EXISTS ingredient_catalog (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), owner_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 100),
+  unit text NOT NULL CHECK (unit IN ('g','kg','ml','liter','buah')),
+  current_price numeric(20,6) NOT NULL CHECK (current_price > 0),
+  version integer NOT NULL DEFAULT 1,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ingredient_catalog_owner_name ON ingredient_catalog(owner_id,lower(name));
+CREATE TABLE IF NOT EXISTS ingredient_price_history (
+  ingredient_id uuid NOT NULL REFERENCES ingredient_catalog(id) ON DELETE CASCADE,
+  version integer NOT NULL, price numeric(20,6) NOT NULL CHECK (price > 0),
+  changed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(ingredient_id,version)
+);
+CREATE TABLE IF NOT EXISTS channel_price_settings (
+  calculation_id uuid PRIMARY KEY REFERENCES calculation(id) ON DELETE CASCADE,
+  owner_id text NOT NULL REFERENCES "user"(id),
+  settings jsonb NOT NULL DEFAULT '[]'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS channel_price_settings_owner ON channel_price_settings(owner_id);
+CREATE TABLE IF NOT EXISTS daily_sales (
+  owner_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  sale_date date NOT NULL,
+  channels jsonb NOT NULL DEFAULT '[]'::jsonb,
+  note text NOT NULL DEFAULT '',
+  version integer NOT NULL DEFAULT 1,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(owner_id,sale_date)
+);
+CREATE INDEX IF NOT EXISTS daily_sales_owner_date ON daily_sales(owner_id,sale_date DESC);
+CREATE TABLE IF NOT EXISTS prompt_gallery_collection (
+  product_id text PRIMARY KEY, name text NOT NULL, description text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS prompt_gallery_card (
+  id text PRIMARY KEY, product_id text NOT NULL REFERENCES prompt_gallery_collection(product_id) ON DELETE CASCADE,
+  title text NOT NULL, group_name text NOT NULL CHECK (group_name IN ('FOOD','DRINK')),
+  type_name text NOT NULL, prompt_text text NOT NULL, usage_tips text NOT NULL DEFAULT '',
+  image_key text NOT NULL, image_mime text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0, active boolean NOT NULL DEFAULT true,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS prompt_gallery_card_product ON prompt_gallery_card(product_id,active,sort_order);
 CREATE TABLE IF NOT EXISTS finalize_request (
   calculation_id uuid NOT NULL REFERENCES calculation(id), request_id uuid NOT NULL,
   draft_version integer NOT NULL, revision integer NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),

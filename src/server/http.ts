@@ -45,6 +45,7 @@ export async function requireActor(request: Request, access: "session" | "calcul
   if (!profile) throw new DomainError(403, "ACCOUNT_NOT_PROVISIONED", "Akun belum memiliki profil akses.");
   if (profile.account_status === "suspended" && access !== "session") throw new DomainError(403, "ACCOUNT_SUSPENDED", "Akun sedang ditangguhkan.");
   if (access === "admin" && profile.role !== "admin") throw new DomainError(403, "ADMIN_REQUIRED", "Akses admin diperlukan.");
+  if (access === "admin" && profile.account_status !== "active") throw new DomainError(403, "ACCOUNT_PENDING", "Akun admin belum aktif.");
   if (access === "calculator") {
     if (profile.account_status !== "active") throw new DomainError(403, "ACCOUNT_PENDING", "Akun belum diaktifkan.");
     const grant = await query("SELECT 1 FROM access_grant WHERE user_id = $1 AND feature_key = 'hpp_calculator' AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1", [session.user.id]);

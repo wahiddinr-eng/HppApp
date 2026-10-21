@@ -5,6 +5,17 @@ import { inputSchema, toFormInput, type CalculationInput } from "../lib/input";
 import { query, transaction } from "./db";
 import { DomainError } from "./http";
 
+async function validateIngredientLinks(owner:string,input:CalculationInput){
+  const ids=[...new Set(input.ingredients.map(row=>row.catalogId).filter((id):id is string=>!!id))];
+  if(!ids.length)return;
+  const found=await query<{id:string;unit:string}>("SELECT id,unit FROM ingredient_catalog WHERE owner_id=$1 AND id=ANY($2::uuid[])",[owner,ids]);
+  if(found.rows.length!==ids.length)throw new DomainError(422,"INVALID_INGREDIENT_LINK","Bahan yang terhubung tidak tersedia untuk akun ini.");
+  const units=new Map(found.rows.map(row=>[row.id,row.unit]));
+  const group=(unit:string)=>unit==="g"||unit==="kg"?"mass":unit==="ml"||unit==="liter"?"volume":"count";
+  if(input.ingredients.some(row=>row.catalogId&&group(row.unit)!==group(units.get(row.catalogId)||"")))
+    throw new DomainError(422,"INVALID_INGREDIENT_LINK","Satuan bahan yang terhubung tidak sejenis.");
+}
+
 export type CalculationRow = {id:string;owner_id:string;draft_input:CalculationInput;draft_version:number;name:string;state:"draft"|"final";latest_revision:number;archived:boolean;updated_at:Date};
 export function clientCalculation(row:CalculationRow):Calculation { return {...toFormInput(row.draft_input),id:row.id,state:row.state,revision:row.latest_revision,draftVersion:row.draft_version,archived:row.archived,updatedAt:new Date(row.updated_at).toISOString()}; }
 export const checkId = (id:string) => { if(!z.uuid().safeParse(id).success) throw new DomainError(404,"NOT_FOUND","Perhitungan tidak ditemukan."); };
@@ -26,6 +37,7 @@ export function snapshotResult(input:CalculationInput) {
 }
 
 export async function createCalculation(owner:string,input:CalculationInput) {
+  await validateIngredientLinks(owner,input);
   const result=await query<CalculationRow>("INSERT INTO calculation(owner_id,draft_input,name) VALUES($1,$2,$3) RETURNING *",[owner,JSON.stringify({schema_version:"1",...input}),input.name]);
   return clientCalculation(result.rows[0]);
 }
@@ -36,6 +48,7 @@ export async function getCalculation(owner:string,id:string) {
   return clientCalculation(result.rows[0]);
 }
 export async function saveDraft(owner:string,id:string,input:CalculationInput,expected:number) {
+  await validateIngredientLinks(owner,input);
   checkId(id);
   const result=await query<CalculationRow>("UPDATE calculation SET draft_input=$3,name=$4,state='draft',draft_version=draft_version+1,updated_at=now() WHERE id=$1 AND owner_id=$2 AND draft_version=$5 RETURNING *",[id,owner,JSON.stringify({schema_version:"1",...input}),input.name,expected]);
   if(!result.rows[0]) { await getCalculation(owner,id); throw new DomainError(409,"DRAFT_CONFLICT","Draft telah diubah di tab lain. Muat ulang atau simpan sebagai perhitungan baru."); }

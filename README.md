@@ -1,6 +1,6 @@
-# Kalkulator HPP Kuliner
+# KulinerKit
 
-Aplikasi Next.js dengan backend PostgreSQL berdasarkan [PRD.md](./PRD.md). Frontend tidak lagi menggunakan localStorage sebagai penyimpanan perhitungan. Akun dibuat dari pembelian yang tervalidasi; pendaftaran umum tidak tersedia.
+Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD kalkulator HPP](./PRD.md). Alurnya mengikuti kebutuhan usaha: menyiapkan harga lewat HPP dan simulasi kanal, menyiapkan promosi lewat galeri prompt, lalu mencatat penjualan harian dan menganalisis hasilnya. Ini bukan aplikasi kasir; penjualan diisi sebagai rekap per hari. Akun dibuat dari pembelian yang tervalidasi; pendaftaran umum tidak tersedia.
 
 ## Fitur yang tersedia
 
@@ -8,9 +8,20 @@ Aplikasi Next.js dengan backend PostgreSQL berdasarkan [PRD.md](./PRD.md). Front
 - Akun dan grant terpisah, pemeriksaan akses aktif serta pemilik pada setiap API perhitungan/report/ekspor.
 - Draft otomatis setelah 2 detik, optimistic locking antar-tab, finalisasi idempoten, revisi final immutable di database.
 - Mesin HPP decimal berpresisi 60 digit, pajak inclusive/exclusive, report dari snapshot server, PDF A4 dan Excel enam sheet.
+- Simulasi harga jual untuk GoFood, ShopeeFood, GrabFood, dan kanal lain dengan tarif merchant yang diisi sendiri.
+- Daftar Bahan & Riwayat Harga: tautkan satu bahan ke beberapa resep, pratinjau perubahan HPP/margin, lalu konfirmasi pembaruan. Menu final mendapat revisi baru dengan harga jual pilihan tetap; revisi dan rekap penjualan lama tidak ditimpa.
+- Galeri prompt promosi untuk pelanggan berhak akses, dikelola dari panel admin.
+- Penjualan Harian: jumlah pesanan, produk terjual, omzet kotor, potongan kanal, catatan, dan hari tanpa penjualan. HPP produk disimpan sebagai snapshot saat rekap pertama dibuat, sehingga perubahan resep berikutnya tidak mengubah analisis historis.
+- Analisis Penjualan: rentang 7/30 hari, bulan berjalan atau tanggal khusus; perbandingan periode sebelumnya, menu terlaris, kanal dengan pesanan terbanyak, tren, dan riwayat harian. Hasil setelah HPP adalah perkiraan sebelum biaya usaha lain, bukan laba bersih akuntansi.
 - Webhook HMAC dengan batas body, pemeriksaan waktu, inbox durable, dedup, purchase state_version, tombstone refund, dan tinjauan refund sebagian/perubahan email.
 - Worker webhook/email dengan locking, retry eksponensial, heartbeat, dan pembersihan payload token yang selesai/kedaluwarsa.
-- Admin di /admin/access dan /admin/integrations: pencarian akun, cabut/pulihkan grant dengan alasan, kirim ulang aktivasi, pantau dan retry job gagal. Admin tidak dapat melihat resep milik pembeli melalui panel ini.
+- Panel admin terpisah di `/admin`: dashboard jumlah pengguna, pembelian unik, hak aktif, kartu prompt, dan job gagal; halaman pengguna/akses, integrasi/email, serta kartu prompt. Admin tidak dapat melihat resep milik pembeli melalui panel ini.
+
+Sidebar pelanggan diurutkan berdasarkan perjalanan usaha: Beranda → Siapkan Harga → Siapkan Promosi → Pantau Penjualan → Akun. Pada layar ponsel, menu tambahan ada di "Lainnya". Halaman rekap ada di `/app/sales`, dan analisis di `/app/sales/analysis`.
+
+Halaman `/app/ingredients` menyimpan harga per satuan (g, kg, ml, liter, atau buah). Resep yang sudah ada **tidak ditautkan otomatis** berdasarkan nama: buka resep, pilih bahan yang sesuai pada setiap baris, lalu finalkan revisinya sekali. Setelah itu, perubahan harga dari daftar bahan dapat diterapkan ke semua resep aktif yang tertaut dalam satu konfirmasi. Draft diperbarui sebagai draft; menu final mendapatkan revisi final baru. Bila harga jual awal memakai saran otomatis, pembaruan bahan membekukan harga jual sebelumnya sebagai harga pilihan agar harga tidak naik diam-diam; saran harga baru tetap ditampilkan. Resep arsip tidak diperbarui otomatis. Perubahan harga katalog bukan pencatatan stok atau biaya pembelian aktual setiap batch.
+
+Saat customer aktif pertama kali login, aplikasi membuka `/app/guide`. Panduan menampilkan langkah sesuai fitur yang dimiliki akun; tombol **Mulai menggunakan** menyimpan status selesai per akun, sehingga login berikutnya langsung menuju ruang kerja. Panduan tetap dapat dibuka dari bagian bawah sidebar desktop atau menu **Lainnya** di ponsel. Admin tidak diarahkan ke panduan customer.
 
 ## Persiapan lokal
 
@@ -32,6 +43,8 @@ npm run worker
 ```
 
 Migrasi menjalankan schema Better Auth dan schema domain yang idempoten. Worker wajib berjalan terpisah dari web server agar event yang sudah diterima 202 tetap diproses meski browser ditutup.
+
+Untuk mencoba analisis dengan akun customer demo lokal yang sudah berisi tiga produk final, jalankan `node --env-file=.env.local --import tsx scripts/seed-demo-sales.ts`. Skrip ini hanya menerima URL aplikasi/database localhost, menambahkan 14 hari data ilustratif, dan tidak menimpa hari yang sudah tercatat. Data demo tidak digunakan di produksi.
 
 Buka http://localhost:3000/login. Tanpa konfigurasi database/secret, API menolak permintaan dan halaman aplikasi menampilkan petunjuk konfigurasi, bukan akses demo. Tanpa SMTP, grant tetap tersimpan tetapi email gagal dan masuk antrean retry; pantau panel integrasi.
 
@@ -65,9 +78,11 @@ npm run admin:create
 unset ADMIN_EMAIL ADMIN_PASSWORD
 ```
 
-Masuk melalui /login; admin diarahkan ke /admin/access. Role admin tidak otomatis mendapat grant kalkulator atau akses resep pengguna. Pengguna aktif tanpa grant diarahkan ke /app/access.
+Masuk melalui `/login`; admin diarahkan ke `/admin`. Role admin tidak otomatis mendapat grant kalkulator atau akses resep pengguna. Pengguna aktif tanpa grant diarahkan ke `/app/access`.
 
 ## Integrasi pembelian
+
+Panduan lengkap konfigurasi kedua aplikasi, implementasi sender LRMobileID, payload/signature, pengujian, retry, refund, dan troubleshooting: [Panduan Integrasi Webhook LRMobileID → HppApp](./PANDUAN-INTEGRASI-WEBHOOK.md).
 
 Endpoint: POST /api/webhooks/purchases. Kontrak lengkap ada pada bagian 14 PRD.
 
@@ -98,6 +113,9 @@ Status review_required membutuhkan rekonsiliasi manual dengan sumber pembelian. 
 - /api/calculations/:id/finalize: expected_draft_version dan request_id UUID.
 - /api/calculations/:id/duplicate dan archive.
 - /api/calculations/:id/revisions/:revision/report dan export?format=pdf atau xlsx.
+- /api/sales/day: GET dengan `date=YYYY-MM-DD`, PUT untuk menyimpan rekap dengan `version` (konflik 409).
+- /api/sales/analysis: GET dengan `from` dan `to` untuk rangkuman serta pembanding periode sebelumnya.
+- /api/profile/guide: POST untuk menandai panduan awal selesai bagi customer yang login.
 - /api/admin/access dan integrations: khusus admin, setiap tindakan wajib alasan.
 
 Input uang/angka API berupa decimal string canonical dengan titik desimal tanpa pemisah ribuan. Snapshot dihitung server; hasil hitung dari client diabaikan. Request mutasi pengguna harus membawa Origin yang sesuai APP_BASE_URL.

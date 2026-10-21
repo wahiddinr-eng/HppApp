@@ -1,0 +1,35 @@
+.guide { display: grid; gap: 22px; max-width: 1080px; }
+.eyebrow { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.hero { display: flex; align-items: center; justify-content: space-between; gap: 28px; min-height: 188px; padding: 28px 32px; border-radius: 17px; background: linear-gradient(112deg, #0d765e, #258e6e); color: #fff; }
+.hero > div:first-child { min-width: 0; }
+.hero .eyebrow { color: #b9e7ca; }
+.hero h2 { margin: 10px 0 8px; font: 800 clamp(23px, 3vw, 30px)/1.2 Manrope, sans-serif; letter-spacing: -.04em; }
+.hero p { max-width: 660px; margin: 0; color: #e1f3e8; font-size: 13px; line-height: 1.65; }
+.heroCount { display: grid; place-content: center; flex: none; width: 112px; height: 112px; border: 1px solid #ffffff65; border-radius: 15px; background: #ffffff18; text-align: center; }
+.heroCount strong { font: 800 43px/1 Manrope, sans-serif; letter-spacing: -.08em; }
+.heroCount span { margin-top: 5px; color: #d6efdf; font-size: 10px; font-weight: 700; }
+.sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
+.sectionHeading h2 { margin: 7px 0 0; font: 800 20px/1.3 Manrope, sans-serif; }
+.sectionHeading p { margin: 0; color: var(--muted); font-size: 12px; }
+.steps { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 12px 28px rgba(26, 68, 47, .035); }
+.step { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 19px; min-height: 100px; padding: 15px 22px; }
+.step + .step { border-top: 1px solid var(--line); }
+.stepMark { display: grid; justify-items: center; gap: 5px; align-self: stretch; align-content: center; border-right: 1px solid var(--line); padding-right: 15px; }
+.number { color: #9caf9f; font: 800 10px Manrope, sans-serif; }
+.icon { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 9px; background: #eaf5ed; color: var(--green); }
+.stepText { min-width: 0; }
+.stepStage { color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.step h3 { margin: 4px 0 4px; font: 800 15px/1.25 Manrope, sans-serif; }
+.step p { max-width: 700px; margin: 0; color: #6e8075; font-size: 12px; line-height: 1.55; }
+.stepAction { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 125px; min-height: 35px; padding: 0 12px; border: 1px solid #dce9df; border-radius: 8px; color: var(--green); font-size: 11px; font-weight: 800; white-space: nowrap; }
+.stepAction:hover { border-color: #a9d0b5; background: #edf8f0; }
+.accessNote { display: flex; gap: 12px; padding: 18px; border: 1px solid #dbeadf; border-radius: 13px; background: #f0f8f1; color: var(--green); }
+.accessNote p { margin: 5px 0 10px; color: #6a8072; font-size: 12px; }
+.accessNote a { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; }
+.footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 24px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.footer strong { font: 800 15px Manrope, sans-serif; }
+.footer p { margin: 4px 0 0; color: #7c8d82; font-size: 11px; line-height: 1.55; }
+.footer button { flex: none; }
+.loading { padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); }
+@media (max-width: 900px) { .step { grid-template-columns: 50px minmax(0, 1fr); gap: 12px; } .stepAction { grid-column: 2; justify-self: start; margin-top: 3px; } .stepMark { grid-row: 1 / 3; } }
+@media (max-width: 700px) { .guide { gap: 17px; } .hero { min-height: 0; padding: 24px 21px; border-radius: 14px; } .hero h2 { font-size: 23px; } .heroCount { display: none; } .sectionHeading { display: block; } .sectionHeading p { margin-top: 6px; } .step { padding: 15px 14px; gap: 10px; } .step h3 { font-size: 14px; } .step p { font-size: 11px; } .footer { display: block; padding: 18px; } .footer button { width: 100%; margin-top: 15px; } }

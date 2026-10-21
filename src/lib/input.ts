@@ -6,7 +6,7 @@ const numberText = text(80);
 const rowId = text(128);
 export const inputSchema = z.object({
   name:text(120),business:text(120),batch:numberText,outputUnit:z.enum(["box","pack","cup","porsi","buah","botol","lainnya"]),customUnit:text(30),note:text(500),
-  ingredients:z.array(z.object({id:rowId,name:text(100),quantity:numberText,unit:z.enum(["g","kg","ml","liter","buah"]),price:numberText})).max(100),
+  ingredients:z.array(z.object({id:rowId,name:text(100),quantity:numberText,unit:z.enum(["g","kg","ml","liter","buah"]),price:numberText,catalogId:z.uuid().optional()})).max(100),
   packages:z.array(z.object({id:rowId,name:text(100),quantity:numberText,price:numberText})).max(50),
   labor:z.array(z.object({id:rowId,name:text(100),people:numberText,wage:numberText})).max(50),
   others:z.array(z.object({id:rowId,type:z.enum(["Listrik","Gas","Air","Sewa ruang produksi","Penggunaan alat","Lainnya"]),note:text(200),amount:numberText})).max(50),

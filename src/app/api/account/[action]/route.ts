@@ -14,8 +14,9 @@ export async function GET(request:Request,{params}:{params:Promise<{action:strin
     }
     if(action==="status") {
       const actor=await requireActor(request,"session");
-      const grants=await query("SELECT id,status,source,purchase_id,item_id,expires_at,created_at FROM access_grant WHERE user_id=$1 AND feature_key='hpp_calculator' ORDER BY created_at DESC",[actor.id]);
-      return privateJson({user:actor,grants:grants.rows,active:actor.status==="active"&&grants.rows.some(g=>g.status==="active"&&(!g.expires_at||new Date(g.expires_at).getTime()>Date.now()))});
+      const grants=await query("SELECT id,feature_key,status,source,purchase_id,item_id,expires_at,created_at FROM access_grant WHERE user_id=$1 ORDER BY created_at DESC",[actor.id]);
+      const active=actor.status==="active"?grants.rows.filter(g=>g.status==="active"&&(!g.expires_at||new Date(g.expires_at).getTime()>Date.now())):[];
+      return privateJson({user:actor,grants:grants.rows,active:active.length>0,features:[...new Set(active.map(g=>g.feature_key))]});
     }
     throw new DomainError(404,"NOT_FOUND","Endpoint tidak ditemukan.");
   }catch(error){return apiError(error);}

@@ -33,6 +33,9 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await page.getByRole("button",{name:"Aktifkan akun",exact:true}).click();await expect(page.getByRole("status")).toContainText("berhasil diaktifkan");
     await page.getByRole("link",{name:"Kembali masuk"}).click();
     await page.getByLabel("Alamat email").fill(email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();
+    await expect(page).toHaveURL(/\/app\/guide$/);
+    await expect(page.getByRole("heading",{name:"Panduan penggunaan"})).toBeVisible();
+    await page.getByRole("button",{name:"Mulai menggunakan"}).click();
     await expect(page).toHaveURL(/\/app\/calculations$/);await page.getByRole("link",{name:"Perhitungan baru",exact:true}).first().click();
     await page.locator("#name").fill("Brownies browser");await page.locator("#business").fill("Dapur pengujian");await page.locator("#batch").fill("10");
     await page.locator("#ingredient-0-name").fill("Bahan brownies");await page.locator("#ingredient-0-quantity").fill("1");await page.locator("#ingredient-0-price").fill("100000");
@@ -48,7 +51,12 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await page.locator("textarea").fill("Draft belum final");await expect(page.locator(".draft-badge")).toContainText("Tersimpan di server");
     const other=await context.newPage();await other.goto("/app/calculations/"+id+"/edit");await other.locator("textarea").fill("Perubahan tab lain");await expect(other.locator(".draft-badge")).toContainText("Tersimpan di server");
     await page.locator("#name").fill("Input tab pertama");await expect(page.locator(".form-message[role=alert]")).toContainText("Draft diubah di tab lain",{timeout:15000});
-    await page.getByRole("button",{name:"Simpan sebagai baru",exact:true}).click();await expect(page.getByRole("status")).toContainText("Salinan baru tersimpan");await other.close();
+    await page.getByRole("button",{name:"Simpan sebagai baru",exact:true}).click();
+    await expect(page).not.toHaveURL(new RegExp(`/app/calculations/${id}/edit$`));
+    await expect(page).toHaveURL(/\/app\/calculations\/[^/]+\/edit$/);
+    await expect(page.locator("#name")).toHaveValue("Input tab pertama");
+    await expect(page.getByRole("button",{name:"Simpan sebagai baru",exact:true})).toHaveCount(0);
+    await other.close();
     await page.setViewportSize({width:390,height:844});await page.goto("/app/calculations");
     await expect(page.getByRole("heading",{name:"Selamat datang di ruang hitung Anda"})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -61,10 +69,12 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await page.getByRole("button",{name:"Keluar akun",exact:true}).last().click();await expect(page).toHaveURL(/\/login$/);
     const admin=await auth.api.createUser({body:{email:"browser-admin-"+randomUUID()+"@example.test",password,name:"Admin browser",role:"admin"}});
     await query("INSERT INTO user_profile(user_id,account_status,role) VALUES($1,'active','admin')",[admin.user.id]);
-    await page.getByLabel("Alamat email").fill(admin.user.email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();await expect(page).toHaveURL(/\/admin\/access$/);
-    await page.getByRole("searchbox").fill(email);await expect(page.getByRole("heading",{name:email,exact:true})).toBeVisible();
-    page.once("dialog",dialog=>dialog.accept("Pengujian pencabutan akses"));await page.getByRole("button",{name:"Cabut akses",exact:true}).click();await expect(page.getByRole("status")).toContainText("diaudit");await expect(page.getByRole("button",{name:"Pulihkan akses",exact:true})).toBeVisible();
-    await page.getByRole("link",{name:"Integrasi",exact:true}).last().click();await expect(page.getByRole("heading",{name:"Inbox webhook"})).toBeVisible();
+    await page.getByLabel("Alamat email").fill(admin.user.email);await page.getByLabel("Password",{exact:true}).fill(password);await page.getByRole("button",{name:"Masuk",exact:true}).click();await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole("heading",{name:"Dashboard KulinerKit"})).toBeVisible();
+    await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Pengguna & akses"}).click();
+    await page.getByRole("searchbox").fill(email);await expect(page.getByText(email,{exact:true}).first()).toBeVisible();
+    page.once("dialog",dialog=>dialog.accept("Pengujian pencabutan akses"));await page.getByRole("button",{name:"Cabut",exact:true}).click();await expect(page.getByRole("status")).toContainText("diaudit");await expect(page.getByRole("button",{name:"Pulihkan",exact:true})).toBeVisible();
+    await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Integrasi & email"}).click();await expect(page.getByRole("heading",{name:"Webhook pembelian"})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(runtimeErrors).toEqual([]);
   }finally{await getPool().end();}
 });

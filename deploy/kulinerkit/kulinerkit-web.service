@@ -1,0 +1,25 @@
+[Unit]
+Description=KulinerKit web
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kulinerkit
+Group=kulinerkit
+WorkingDirectory=/srv/kulinerkit/current
+EnvironmentFile=/etc/kulinerkit/kulinerkit.env
+ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3102
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/kulinerkit
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Kalkulator HPP Kuliner",
-  description: "Hitung biaya produksi dan temukan harga jual yang pas untuk usaha kuliner Anda."
+  title: "KulinerKit",
+  description: "Hitung biaya, tentukan harga, siapkan promosi, dan pantau penjualan usaha kuliner Anda."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

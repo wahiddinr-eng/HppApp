@@ -13,7 +13,7 @@ export function exportFilename(report:ReportSnapshot,format:string){
   return "HPP-"+name+"-"+date+"-r"+report.calculation.revision+"."+format;
 }
 export async function exportExcel(report:ReportSnapshot){
-  const wb=new ExcelJS.Workbook();wb.creator="Kalkulator HPP Kuliner";wb.created=new Date();
+  const wb=new ExcelJS.Workbook();wb.creator="KulinerKit";wb.created=new Date();
   const c=report.input;const r=report.result;const unit=outputLabel(report.calculation);
   const sheet=(name:string,headers:string[],rows:(string|number)[][])=>{
     const ws=wb.addWorksheet(name,{views:[{state:"frozen",ySplit:1}]});
@@ -52,12 +52,12 @@ export async function exportExcel(report:ReportSnapshot){
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 export async function exportPdf(report:ReportSnapshot):Promise<Buffer>{
-  const doc=new PDFDocument({size:"A4",margin:40,bufferPages:true,info:{Title:"HPP "+report.calculation.name,Author:"Kalkulator HPP Kuliner"}});
+  const doc=new PDFDocument({size:"A4",margin:40,bufferPages:true,info:{Title:"HPP "+report.calculation.name,Author:"KulinerKit"}});
   const buffers:Buffer[]=[];const done=new Promise<Buffer>((resolve,reject)=>{doc.on("data",chunk=>buffers.push(chunk));doc.on("end",()=>resolve(Buffer.concat(buffers)));doc.on("error",reject);});
   const c=report.input;const r=report.result;const unit=outputLabel(report.calculation);const width=515;
   const room=(height:number)=>{if(doc.y+height>doc.page.height-65)doc.addPage();};
   const heading=(title:string)=>{room(45);doc.font("Helvetica-Bold").fontSize(12).fillColor("#147d66").text(title).moveDown(.5);doc.font("Helvetica").fillColor("#273b32");};
-  doc.font("Helvetica-Bold").fontSize(10).fillColor("#147d66").text("KALKULATOR HPP KULINER").moveDown();
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("#147d66").text("KULINERKIT · KALKULATOR HPP").moveDown();
   doc.fontSize(22).fillColor("#1c2c2b").text(c.name,{width}).moveDown(.3);
   doc.font("Helvetica").fontSize(10).text(c.business).text("Hasil: "+c.batch+" "+unit+" / batch | Revisi r"+report.calculation.revision+" | "+report.formula_version);
   doc.text("Waktu WITA: "+new Intl.DateTimeFormat("id-ID",{timeZone:"Asia/Makassar",dateStyle:"long",timeStyle:"short"}).format(new Date(report.calculation.updatedAt))).moveDown();

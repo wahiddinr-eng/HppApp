@@ -19,7 +19,8 @@ export async function processOneWebhook():Promise<boolean>{
       if(old && Number(old.state_version)===purchase.state_version)return finish(old.snapshot_hash===hash?"ignored":"review_required",old.snapshot_hash===hash?"same_state":"version_conflict");
       if(old && old.customer_email!==purchase.customer.email)return finish("review_required","email_changed");
       await client.query("INSERT INTO purchase_state(source,purchase_id,state_version,customer_email,snapshot,snapshot_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(source,purchase_id) DO UPDATE SET state_version=EXCLUDED.state_version,snapshot=EXCLUDED.snapshot,snapshot_hash=EXCLUDED.snapshot_hash,updated_at=now()",[event.source,purchase.id,purchase.state_version,purchase.customer.email,JSON.stringify(snapshot),hash]);
-      const eligible=purchase.items.filter(item=>purchaseConfig().products.includes(item.product_id));
+      const config=purchaseConfig();
+      const eligible=purchase.items.filter(item=>config.products.includes(item.product_id)||config.promptProducts.includes(item.product_id));
       if(!eligible.length)return finish("ignored","ignored_product");
       if(purchase.currency!=="IDR")return finish("review_required","unsupported_currency");
       const paid=eligible.filter(item=>event.type==="purchase.paid"&&purchase.payment_status==="paid"&&item.access_status==="paid");
@@ -38,7 +39,8 @@ export async function processOneWebhook():Promise<boolean>{
         const activate=paid.some(row=>row.id===item.id);
         if(!revoke&&!activate)continue;
         const reason=revoke?item.access_status:"purchase_paid";
-        await client.query("INSERT INTO access_grant(user_id,source,purchase_id,item_id,product_id,status,reason) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source,purchase_id,item_id,feature_key) DO UPDATE SET user_id=COALESCE(access_grant.user_id,EXCLUDED.user_id),status=CASE WHEN EXCLUDED.status='active' AND access_grant.reason LIKE 'admin:%' THEN access_grant.status ELSE EXCLUDED.status END,reason=CASE WHEN EXCLUDED.status='active' AND access_grant.reason LIKE 'admin:%' THEN access_grant.reason ELSE EXCLUDED.reason END,updated_at=now()",[userId||null,event.source,purchase.id,item.id,item.product_id,revoke?"revoked":"active",reason]);
+        const features=[...(config.products.includes(item.product_id)?["hpp_calculator"]:[]),...(config.promptProducts.includes(item.product_id)?["prompt_gallery"]:[])];
+        for(const feature of features) await client.query("INSERT INTO access_grant(user_id,source,purchase_id,item_id,product_id,feature_key,status,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(source,purchase_id,item_id,feature_key) DO UPDATE SET user_id=COALESCE(access_grant.user_id,EXCLUDED.user_id),status=CASE WHEN EXCLUDED.status='active' AND access_grant.reason LIKE 'admin:%' THEN access_grant.status ELSE EXCLUDED.status END,reason=CASE WHEN EXCLUDED.status='active' AND access_grant.reason LIKE 'admin:%' THEN access_grant.reason ELSE EXCLUDED.reason END,updated_at=now()",[userId||null,event.source,purchase.id,item.id,item.product_id,feature,revoke?"revoked":"active",reason]);
       }
       if(userId&&paid.length&&accountStatus!=="suspended"){
         const kind=accountStatus==="pending_activation"?"activation_request":"access_given";

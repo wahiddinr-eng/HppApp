@@ -6,7 +6,7 @@ export async function GET(request:Request){try{
   const search=(url.searchParams.get("search")||"").slice(0,120);const status=url.searchParams.get("status")||"active";
   const page=Math.floor(Math.max(1,Math.min(10000,Number(url.searchParams.get("page"))||1)));
   const params=[actor.id,status==="archived","%"+search+"%"];
-  const where="owner_id=$1 AND archived=$2 AND (name ILIKE $3 OR draft_input->>'business' ILIKE $3)";
+  const where="owner_id=$1 AND archived=$2 AND (name ILIKE $3 OR draft_input->>'business' ILIKE $3)"+(status==="final"?" AND latest_revision > 0":"");
   const rows=await query<CalculationRow>("SELECT * FROM calculation WHERE "+where+" ORDER BY updated_at DESC LIMIT 20 OFFSET $4",[...params,(page-1)*20]);
   const count=await query<{count:string}>("SELECT count(*) FROM calculation WHERE "+where,params);
   const stats=await query("SELECT count(*) FILTER(WHERE NOT c.archived)::int AS active,count(*) FILTER(WHERE NOT c.archived AND c.state='final')::int AS final,COALESCE(avg((r.result->>'C')::numeric) FILTER(WHERE NOT c.archived AND c.state='final'),0)::text AS average FROM calculation c LEFT JOIN calculation_revision r ON r.calculation_id=c.id AND r.revision=c.latest_revision WHERE c.owner_id=$1",[actor.id]);

@@ -5,7 +5,7 @@ import { APIError } from "better-auth/api";
 import { getPool, query, databaseConfigured } from "./db";
 
 export const auth = betterAuth({
-  appName: "Kalkulator HPP Kuliner",
+  appName: "KulinerKit",
   baseURL: process.env.APP_BASE_URL || "http://localhost:3000",
   secret: process.env.AUTH_SECRET || randomBytes(32).toString("hex"),
   database: getPool(),
@@ -28,7 +28,11 @@ export const auth = betterAuth({
     if (profile.rows[0]?.account_status !== "active") throw new APIError("FORBIDDEN",{message:"Akun belum aktif atau sedang ditangguhkan."});
     return { data: session };
   } } } },
-  advanced: { database: { joins: true,validateSchema:databaseConfigured() } }
+  advanced: {
+    // Nginx replaces this header after accepting the request; never trust a client-supplied chain.
+    ipAddress: { ipAddressHeaders: ["x-real-ip"] },
+    database: { joins: true,validateSchema:databaseConfigured() }
+  }
 });
 
 export const activationAuth = betterAuth({

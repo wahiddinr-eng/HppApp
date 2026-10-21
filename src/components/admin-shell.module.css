@@ -1,0 +1,37 @@
+.shell { min-height: 100vh; display: flex; background: #f5f8f5; }
+.sidebar { position: sticky; top: 0; width: 270px; height: 100vh; flex: none; display: flex; flex-direction: column; padding: 26px 16px 18px; background: #123d32; color: #fff; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 3px 11px 33px; color: #fff; }
+.brandMark { width: 43px; height: 43px; display: grid; place-items: center; flex: none; border-radius: 12px; background: #e4f4e8; color: #127960; font-size: 24px; font-weight: 800; }
+.brand strong,.brand small { display: block; }
+.brand strong { font-size: 17px; line-height: 1.2; letter-spacing: -.04em; }
+.brand small { margin-top: 4px; font-size: 9px; letter-spacing: .2em; color: #a9d6ba; font-weight: 800; }
+.menuLabel { padding: 0 13px; margin-bottom: 11px; color: #90b6a4; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+.nav { display: grid; gap: 5px; }
+.navLink { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; border: 1px solid transparent; border-radius: 11px; color: #c6ddd0; }
+.navLink:hover { color: #fff; background: #ffffff16; }
+.navLink.active { color: #fff; background: #ffffff1d; border-color: #ffffff21; }
+.navIcon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 9px; background: #ffffff12; }
+.navLink.active .navIcon { background: #dff3e6; color: #137657; }
+.navLink strong,.navLink small { display: block; }
+.navLink strong { font-size: 12px; line-height: 1.3; }
+.navLink small { margin-top: 3px; color: #a5c2b2; font-size: 10px; }
+.sidebarBottom { margin-top: auto; display: grid; gap: 13px; }
+.customerLink { display: flex; align-items: center; gap: 9px; padding: 12px; border: 1px solid #ffffff29; border-radius: 9px; color: #d6ebdc; font-size: 11px; font-weight: 700; }
+.customerLink:hover { background: #ffffff12; }
+.profile { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 15px 7px 0; border-top: 1px solid #ffffff24; }
+.avatar { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #d8eee0; color: #176a52; font-size: 11px; font-weight: 800; }
+.profile > span:last-child { min-width: 0; }
+.profile strong,.profile small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile strong { font-size: 11px; }.profile small { margin-top: 3px; color: #abc6b6; font-size: 10px; }
+.logout { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: #c6ddd0; padding: 8px 7px; text-align: left; font-size: 11px; font-weight: 700; }
+.logout:hover { color: #fff; }.notice { padding: 0 7px; color: #ffddc8; }
+.main { min-width: 0; flex: 1; }.header { min-height: 81px; display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 15px 36px; background: #fff; border-bottom: 1px solid #e4ece5; }
+.header > div:first-child { display: grid; gap: 5px; }.headerKicker { display: flex; align-items: center; gap: 6px; color: #168168; font-size: 9px; font-weight: 800; letter-spacing: .13em; }.header > div:first-child > strong { color: #263e33; font-size: 14px; }
+.headerActions { display: flex; align-items: center; gap: 14px; }.headerCustomer { display: flex; align-items: center; gap: 7px; color: #39765a; font-size: 11px; font-weight: 700; }.headerCustomer svg { transform: rotate(135deg); }.headerLogout { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #e3ebe5; border-radius: 8px; background: #fff; color: #587260; cursor: pointer; }.headerLogout:hover { background: #f0f7f1; color: #166d52; }
+.content { width: 100%; max-width: 1520px; margin: 0 auto; padding: 35px 36px 70px; }.mobileNav { display: none; }
+@media (max-width: 900px) { .sidebar { width: 228px; }.content { padding: 28px 24px 60px; }.header { padding: 15px 24px; } }
+@media (max-width: 700px) {
+  .shell { display: block; }.sidebar { display: none; }.header { min-height: 69px; padding: 13px 16px; }.headerCustomer { font-size: 0; }.headerCustomer svg { width: 19px; height: 19px; }.content { padding: 24px 16px 45px; }
+  .mobileNav { display: flex; gap: 6px; overflow-x: auto; padding: 11px 16px; background: #fff; border-bottom: 1px solid #e4ece5; scrollbar-width: none; }.mobileNav::-webkit-scrollbar { display: none; }
+  .mobileNav a { display: flex; align-items: center; gap: 6px; flex: none; padding: 9px 11px; border-radius: 8px; color: #657d6d; font-size: 11px; font-weight: 700; white-space: nowrap; }.mobileNav a.mobileActive { color: #fff; background: #127960; }
+}

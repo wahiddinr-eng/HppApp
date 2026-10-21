@@ -1,0 +1,20 @@
+[Unit]
+Description=LRMobileID outbound purchase webhook worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lrmobileid
+WorkingDirectory=/var/www/lrmobileid/app
+EnvironmentFile=/etc/lrmobileid/lrmobileid.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run webhooks:worker
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

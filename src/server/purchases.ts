@@ -15,8 +15,9 @@ export function purchaseConfig(){
   let keys:Record<string,{secret:string;source:string}>;
   try{keys=z.record(z.string(),z.object({secret:z.string().min(32).refine(value=>!value.includes("CHANGE_ME")),source:z.string().min(1)})).parse(JSON.parse(process.env.PURCHASE_WEBHOOK_KEYS||"{}"));}catch{throw new DomainError(503,"WEBHOOK_CONFIG","Konfigurasi webhook belum lengkap.");}
   const source=process.env.PURCHASE_SOURCE_ID;const products=(process.env.ELIGIBLE_AI_FOOD_PRODUCT_IDS||"").split(",").map(value=>value.trim()).filter(Boolean);
-  if(!source||!products.length||!Object.keys(keys).length)throw new DomainError(503,"WEBHOOK_CONFIG","Konfigurasi webhook belum lengkap.");
-  return {keys,source,products};
+  const promptProducts=(process.env.PROMPT_GALLERY_PRODUCT_IDS||"").split(",").map(value=>value.trim()).filter(Boolean);
+  if(!source||(!products.length&&!promptProducts.length)||!Object.keys(keys).length)throw new DomainError(503,"WEBHOOK_CONFIG","Konfigurasi webhook belum lengkap.");
+  return {keys,source,products,promptProducts};
 }
 export function verifyPurchaseSignature(raw:Uint8Array,headers:Headers,now=Date.now()){
   const config=purchaseConfig();const keyId=headers.get("x-hpp-key-id")||"";const key=config.keys[keyId];

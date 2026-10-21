@@ -12,6 +12,7 @@
     "worker": "tsx --env-file=.env.local scripts/worker.ts",
     "smtp:verify": "tsx --env-file=.env.local scripts/verify-smtp.ts",
     "admin:create": "tsx --env-file=.env.local scripts/create-admin.ts",
+    "prompts:import": "tsx --env-file=.env.local scripts/import-lrmobileid-prompts.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test"
   },
