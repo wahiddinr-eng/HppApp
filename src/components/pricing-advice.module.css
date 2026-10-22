@@ -1,0 +1,16 @@
+.starterNote{display:flex;align-items:flex-start;gap:11px;margin:0 0 18px;padding:14px 16px;border:1px solid #dcebdd;border-radius:11px;background:#f3faf4;color:#325d44}
+.starterNote svg{flex:none;margin-top:2px;color:#21805b}
+.starterNote strong{display:block;font-size:12px;line-height:1.4}
+.starterNote p{margin:3px 0 0;font-size:11px;line-height:1.6;color:#617b67}
+.starterNote a{font-weight:800;color:#176b4d;text-decoration:underline;text-underline-offset:2px}
+.priceFloor{display:grid;gap:2px;padding-bottom:9px;margin-bottom:7px;border-bottom:1px solid #d7e8d8}
+.priceFloor strong{font-size:15px;color:#4f6d57}
+.costReminder{margin:15px 0 0;padding:12px 14px;border:1px solid #f0e2bc;border-radius:9px;background:#fff9ea;color:#806639;font-size:11px;line-height:1.6}
+.promoLimits{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+.promoLimit{min-width:0;padding:12px;border:1px solid #d9eadb;border-radius:9px;background:#fff}
+.promoLimit span{display:block;font-size:10px;line-height:1.4;color:#647c69}
+.promoLimit strong{display:block;font:800 19px Manrope,sans-serif;color:#146b54;letter-spacing:-.04em;margin-top:3px}
+.promoLimit small{display:block;font-size:10px;line-height:1.5;color:#7a907e;margin-top:3px}
+.promoFoot{margin:10px 0 0;font-size:10px;line-height:1.6;color:#607a66}
+.promoFoot strong{color:#28684d}
+@media(max-width:560px){.promoLimits{grid-template-columns:1fr}.starterNote{padding:12px}}

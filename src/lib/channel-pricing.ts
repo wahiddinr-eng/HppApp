@@ -50,10 +50,18 @@ export function calculateChannelPrice(unitCost: Decimal.Value, value: ChannelSet
   const netRevenue = menuPrice.minus(variableFees).minus(fixed);
   const profit = netRevenue.minus(totalCost);
   const actualMargin = netRevenue.gt(0) ? profit.div(netRevenue).mul(100) : new Decimal(0);
+  // These are total merchant-funded promo rates, not extra discounts on top of promoRate.
+  // Round down so the displayed limit never exceeds the mathematical limit.
+  const retainedBeforePromo = new Decimal(1).minus(new Decimal(setting.commissionRate).plus(setting.otherRate).div(100));
+  const promoLimit = (requiredRevenue: Decimal) => Decimal.max(0,
+    retainedBeforePromo.minus(requiredRevenue.plus(fixed).div(menuPrice)).mul(100),
+  ).toFixed(2, Decimal.ROUND_DOWN);
   const fixed2 = (number: Decimal) => number.toFixed(2);
   return {
     menuPrice: fixed2(menuPrice), breakEven: fixed2(breakEven), variableFees: fixed2(variableFees),
     netRevenue: fixed2(netRevenue), totalCost: fixed2(totalCost), profit: fixed2(profit),
     actualMargin: fixed2(actualMargin), totalRate: fixed2(fees.mul(100)),
+    maxPromoNoLossRate: promoLimit(totalCost),
+    maxPromoTargetRate: promoLimit(totalCost.div(new Decimal(1).minus(margin))),
   };
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Save, Target, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Sparkles, Target, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { calculateChannelPrice, type ChannelSetting } from "@/lib/channel-pricing";
-import { rupiah } from "@/lib/hpp";
+import { percent, rupiah } from "@/lib/hpp";
 import { PageTop, Shell } from "./shell";
+import advice from "./pricing-advice.module.css";
 
 type Response = {
   calculation: { id: string; name: string; unit: string; revision: number; costPerUnit: string };
@@ -59,6 +60,7 @@ export function ChannelPricing({ id }: { id: string }) {
         <div><span>PRODUK & REVISI</span><strong>{data.calculation.name}</strong><small>Revisi r{data.calculation.revision} · per {data.calculation.unit}</small></div>
         <div><span>HPP PER {data.calculation.unit.toUpperCase()}</span><strong>{rupiah(data.calculation.costPerUnit, 2)}</strong><small>Diambil dari hasil perhitungan tersimpan</small></div>
       </div>
+      <div className={advice.starterNote}><Sparkles size={16} aria-hidden="true"/><div><strong>Baru mulai? Gunakan margin 30% sebagai titik awal.</strong><p>Ubah target per kanal sesuai biaya dan harga yang masuk akal bagi pembeli. Ini margin per produk setelah potongan, bukan jaminan laba usaha; cek juga biaya tetap di <Link href="/app/profit-target">Target Untung</Link>.</p></div></div>
       <div className="channel-note">Tarif setiap platform berbeda menurut kontrak, promo, dan periode. Isi sesuai dashboard merchant Anda; preset awal bukan tarif resmi. Simulasi menganggap satu porsi per pesanan, seluruh persentase dihitung dari harga menu, dan biaya tetap dibebankan ke satu porsi. Pajak penjualan belum dihitung.</div>
       <div className="channel-grid">
         {settings.map((item, index) => {
@@ -71,7 +73,13 @@ export function ChannelPricing({ id }: { id: string }) {
             <div className="channel-fields">{fields.map((field) => <label key={field.key} className="channel-field"><span>{field.label}</span><div><input aria-label={`${field.label} ${item.name}`} inputMode="decimal" value={item[field.key]} onChange={(event) => update(index, field.key, event.target.value)} /><b>{field.suffix}</b></div><small>{field.help}</small></label>)}
               <label className="channel-field"><span>Pembulatan ke atas</span><select aria-label={`Pembulatan ${item.name}`} value={item.rounding} onChange={(event) => update(index, "rounding", event.target.value)}><option value="1">Rp1</option><option value="500">Rp500</option><option value="1000">Rp1.000</option></select></label>
             </div>
-            {result ? <div className="channel-result"><span>HARGA MENU DISARANKAN</span><strong>{rupiah(result.menuPrice)}</strong><div><span>Minimum menutup biaya</span><b>{rupiah(result.breakEven)}</b></div><div><span>Potongan persentase ({result.totalRate}%)</span><b>{rupiah(result.variableFees)}</b></div><div><span>Diterima setelah semua potongan</span><b>{rupiah(result.netRevenue)}</b></div><div><span>Estimasi laba per {data.calculation.unit}</span><b>{rupiah(result.profit)}</b></div><small>Margin dari penerimaan bersih: {result.actualMargin}%</small></div> : <div className="form-message error" role="alert">{problem}</div>}
+            {result ? <div className="channel-result"><span>HARGA MENU DISARANKAN</span><strong>{rupiah(result.menuPrice)}</strong><div><span>Harga minimum agar tidak rugi per {data.calculation.unit}</span><b>{rupiah(result.breakEven)}</b></div><div><span>Potongan persentase ({result.totalRate}%)</span><b>{rupiah(result.variableFees)}</b></div><div><span>Diterima setelah semua potongan</span><b>{rupiah(result.netRevenue)}</b></div><div><span>Estimasi laba per {data.calculation.unit}</span><b>{rupiah(result.profit)}</b></div><small>Margin dari penerimaan bersih: {result.actualMargin}%</small>
+              <section className={advice.promoLimits} aria-label={`Batas promo ${item.name}`}>
+                <div className={advice.promoLimit}><span>Promo total maks. tanpa rugi per porsi</span><strong>{percent(result.maxPromoNoLossRate)}</strong><small>Batas impas, bukan target laba usaha.</small></div>
+                <div className={advice.promoLimit}><span>Promo total maks. sambil menjaga margin {item.targetMargin}%</span><strong>{percent(result.maxPromoTargetRate)}</strong><small>Gunakan batas ini jika ingin mempertahankan target.</small></div>
+              </section>
+              <p className={advice.promoFoot}>Batas berlaku untuk harga saran {rupiah(result.menuPrice)} dan <strong>sudah termasuk promo {percent(item.promoRate)}</strong> yang Anda isi. Jika harga menu, biaya, atau promo berubah, batas ikut dihitung ulang. Belum termasuk biaya tetap bulanan.</p>
+            </div> : <div className="form-message error" role="alert">{problem}</div>}
           </section>;
         })}
       </div>

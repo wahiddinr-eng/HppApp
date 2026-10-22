@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Decimal from "decimal.js";
 import { calculateChannelPrice, channelSettingSchema, defaultChannels } from "../src/lib/channel-pricing";
 
 test("harga kanal menutup HPP, biaya tambahan, potongan, dan margin target", () => {
@@ -14,6 +15,19 @@ test("harga kanal menutup HPP, biaya tambahan, potongan, dan margin target", () 
   assert.equal(price.totalCost, "12000.00");
   assert.equal(price.profit, "5400.00");
   assert.equal(price.actualMargin, "31.03");
+  assert.equal(price.maxPromoNoLossRate, "23.47");
+  assert.equal(price.maxPromoTargetRate, "1.11");
+});
+
+test("batas promo memakai harga saran dan dibulatkan ke bawah agar tidak melewati batas", () => {
+  const setting = { ...defaultChannels("30")[0], commissionRate: "20", promoRate: "10", fixedFee: "1000", extraCost: "2000" };
+  const price = calculateChannelPrice("10000", setting);
+  assert.equal(price.menuPrice, "26000.00");
+  assert.equal(price.maxPromoNoLossRate, "30.00");
+  assert.equal(price.maxPromoTargetRate, "10.21");
+  assert.ok(Number(price.maxPromoTargetRate) >= Number(setting.promoRate));
+  const retained = new Decimal(price.menuPrice).mul(new Decimal(1).minus(new Decimal(setting.commissionRate).plus(setting.otherRate).plus(price.maxPromoTargetRate).div(100))).minus(setting.fixedFee);
+  assert.ok(retained.minus(price.totalCost).div(retained).mul(100).gte(setting.targetMargin));
 });
 
 test("preset platform tidak menebak tarif merchant", () => {

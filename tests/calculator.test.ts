@@ -9,11 +9,14 @@ import ExcelJS from "exceljs";
 test("Brownies PRD: HPP, margin, rounding and taxes",()=>{
   const c=sampleCalculation();assert.deepEqual(validate(c),{});const r=calculate(c);
   assert.equal(r.B.toString(),"70000");assert.equal(r.T.toString(),"100000");assert.equal(r.C.toString(),"10000");assert.equal(r.suggested.toString(),"14500");
+  assert.equal(r.breakEvenPrice.toString(),"10000");
   assert.ok(r.actualMargin.minus(new Decimal(4500).div(14500).mul(100)).abs().lt("0.0000000001"));
   const exclusive=calculate({...c,taxEnabled:true,taxName:"PBJT",taxRate:"10"});
   assert.equal(exclusive.tax.toString(),"1450");assert.equal(exclusive.customerPrice.toString(),"15950");
   const inclusive=calculate({...c,taxEnabled:true,taxName:"PBJT",taxRate:"10",taxMode:"inclusive"});
   assert.equal(inclusive.suggested.toString(),"16000");assert.equal(inclusive.minimum.toString(),"11000");
+  assert.equal(inclusive.breakEvenPrice.toString(),"11000");
+  assert.equal(exclusive.breakEvenPrice.toString(),"10000");
 });
 test("Repeated division does not misclassify boundary prices",()=>{
   const c={...sampleCalculation(),batch:"3",ingredients:[{id:"a",name:"Bahan",quantity:"1",unit:"buah" as const,price:"100"}],packages:[],labor:[],others:[],statuses:{packages:"none" as const,labor:"none" as const,others:"none" as const},margin:"0",manualPrice:"33,333333"};

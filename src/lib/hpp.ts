@@ -115,6 +115,8 @@ export function calculate(c: Calculation) {
   const targetBeforeTax = canPrice ? C.div(new Decimal(1).minus(m)) : zero;
   const target = c.taxEnabled && c.taxMode === "inclusive" ? targetBeforeTax.mul(factor) : targetBeforeTax;
   const suggested = canPrice ? target.div(step).ceil().mul(step) : zero;
+  const breakEvenBase = c.taxEnabled && c.taxMode === "inclusive" ? C.mul(factor) : C;
+  const breakEvenPrice = canPrice ? breakEvenBase.div(step).ceil().mul(step) : zero;
   const manual = dec(parseMoney(c.manualPrice));
   const effective = manual.gt(0) ? manual : suggested;
   const customerPrice = c.taxEnabled && c.taxMode === "exclusive" ? effective.mul(factor) : effective;
@@ -129,7 +131,7 @@ export function calculate(c: Calculation) {
   const reachesTarget = comparedPrice.mul(new Decimal(1).minus(m)).mul(N).gte(comparedCost);
   const priceStatus = !coversCost ? "Belum menutup biaya" : !reachesTarget ? "Target margin belum tercapai" : "Target margin tercapai";
   const missing = (["packages", "labor", "others"] as const).filter(key => c.statuses[key] === "pending").map(key => ({ packages: "Kemasan", labor: "Tenaga kerja", others: "Biaya produksi lainnya" })[key]);
-  return { B, K, L, O, T, C, targetBeforeTax, target, suggested, effective, beforeTax, customerPrice, tax, difference, actualMargin, minimum, priceStatus, missing, canPrice };
+  return { B, K, L, O, T, C, targetBeforeTax, target, suggested, breakEvenPrice, effective, beforeTax, customerPrice, tax, difference, actualMargin, minimum, priceStatus, missing, canPrice };
 }
 
 function validNumber(value: string, kind: "quantity" | "money" | "rate", positive = false) {

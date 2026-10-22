@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleCheck, Images, Settings2, ShoppingBag, Store, Target } from "lucide-react";
+import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleCheck, Download, Images, Settings2, ShoppingBag, Store, Target } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageTop, Shell } from "./shell";
 import styles from "./guide.module.css";
@@ -64,6 +64,12 @@ export function Guide() {
           <h2>{profile?.guideCompletedAt ? "Lanjutkan dari langkah yang Anda butuhkan." : "Mulai dari langkah pertama."}</h2>
           <p>{intro}</p>
         </div><div className={styles.heroCount}><strong>{profile ? String(steps.length).padStart(2, "0") : "—"}</strong><span>langkah praktis</span></div>
+      </section>
+      <section className={styles.ebook} aria-labelledby="ebook-title">
+        <div className={styles.ebookCover} aria-hidden="true"><span>KULINERKIT</span><strong>Dari biaya resep<br />ke keputusan usaha.</strong><small>PANDUAN LENGKAP</small></div>
+        <div className={styles.ebookInfo}><span className={styles.eyebrow}>EBOOK GRATIS UNTUK PENGGUNA</span><h2 id="ebook-title">Pelajari konsepnya, lalu praktikkan langkah demi langkah.</h2><p>Mulai dari arti dan manfaat HPP kuliner, contoh hitungan sederhana, hingga panduan lengkap memakai bahan, kalkulator, harga kanal, target untung, Galeri Prompt, dan analisis penjualan.</p>
+          <div className={styles.ebookActions}><Link href="/app/guide/ebook" className="button primary"><BookOpenText size={16} /> Baca ebook</Link><a href="/panduan-kulinerkit.pdf?v=2" download="Panduan-KulinerKit.pdf" className="button secondary"><Download size={16} /> Unduh PDF</a></div>
+        </div>
       </section>
       {error && <div className="form-message error" role="alert">{error}</div>}
       {!profile && !error && <div className={styles.loading} role="status">Memuat panduan akun...</div>}

@@ -31,5 +31,14 @@
 .footer p { margin: 4px 0 0; color: #7c8d82; font-size: 11px; line-height: 1.55; }
 .footer button { flex: none; }
 .loading { padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--muted); }
+.ebook { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 26px; align-items: center; padding: 21px; border: 1px solid #d9e7d9; border-radius: 16px; background: #f8fbf5; }
+.ebookCover { display: flex; flex-direction: column; justify-content: space-between; min-height: 230px; padding: 23px 20px; border-radius: 8px; background: radial-gradient(circle at 96% 2%, #4d987b 0, #4d987b 13%, transparent 14%), linear-gradient(140deg, #0c5142, #168066); box-shadow: 8px 13px 22px #214b3833; color: #fff; }
+.ebookCover span { font: 800 12px Manrope, sans-serif; letter-spacing: .07em; }
+.ebookCover strong { font: 800 22px/1.22 Manrope, sans-serif; letter-spacing: -.04em; }
+.ebookCover small { color: #d8f0d9; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.ebookInfo h2 { max-width: 620px; margin: 8px 0 9px; font: 800 21px/1.25 Manrope, sans-serif; letter-spacing: -.03em; }
+.ebookInfo p { max-width: 650px; margin: 0; color: #65786b; font-size: 12px; line-height: 1.7; }
+.ebookActions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+.ebookActions a { min-height: 38px; }
 @media (max-width: 900px) { .step { grid-template-columns: 50px minmax(0, 1fr); gap: 12px; } .stepAction { grid-column: 2; justify-self: start; margin-top: 3px; } .stepMark { grid-row: 1 / 3; } }
-@media (max-width: 700px) { .guide { gap: 17px; } .hero { min-height: 0; padding: 24px 21px; border-radius: 14px; } .hero h2 { font-size: 23px; } .heroCount { display: none; } .sectionHeading { display: block; } .sectionHeading p { margin-top: 6px; } .step { padding: 15px 14px; gap: 10px; } .step h3 { font-size: 14px; } .step p { font-size: 11px; } .footer { display: block; padding: 18px; } .footer button { width: 100%; margin-top: 15px; } }
+@media (max-width: 700px) { .guide { gap: 17px; } .hero { min-height: 0; padding: 24px 21px; border-radius: 14px; } .hero h2 { font-size: 23px; } .heroCount { display: none; } .ebook { grid-template-columns: 1fr; gap: 17px; padding: 16px; } .ebookCover { min-height: 170px; } .ebookInfo h2 { font-size: 19px; } .ebookActions a { flex: 1; justify-content: center; } .sectionHeading { display: block; } .sectionHeading p { margin-top: 6px; } .step { padding: 15px 14px; gap: 10px; } .step h3 { font-size: 14px; } .step p { font-size: 11px; } .footer { display: block; padding: 18px; } .footer button { width: 100%; margin-top: 15px; } }

@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "guide:pdf": "node --import tsx scripts/build-user-guide.ts",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "worker": "tsx --env-file=.env.local scripts/worker.ts",
     "smtp:verify": "tsx --env-file=.env.local scripts/verify-smtp.ts",

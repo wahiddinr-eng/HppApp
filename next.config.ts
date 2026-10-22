@@ -6,6 +6,9 @@ const config:NextConfig={
     {key:"X-Frame-Options",value:"DENY"},
     {key:"Referrer-Policy",value:"no-referrer"},
     {key:"Permissions-Policy",value:"camera=(), microphone=(), geolocation=()"}
+  ]},{source:"/panduan-kulinerkit.pdf",headers:[
+    {key:"X-Frame-Options",value:"SAMEORIGIN"},
+    {key:"Content-Security-Policy",value:"frame-ancestors 'self'"}
   ]}];}
 };
 export default config;
