@@ -21,7 +21,8 @@ smtp_lines=$(grep -E '^(EMAIL_FROM|SMTP_HOST|SMTP_PORT|SMTP_SECURE|SMTP_REQUIRE_
     'PURCHASE_SOURCE_ID=app.lrmobileid.com' \
     'ELIGIBLE_AI_FOOD_PRODUCT_IDS=prd_344a58e2-23f3-4c33-84d0-cf0f9c52f9d0' \
     'PROMPT_GALLERY_PRODUCT_IDS=prd_344a58e2-23f3-4c33-84d0-cf0f9c52f9d0' \
-    'PROMPT_MEDIA_ROOT=/var/lib/kulinerkit/prompt-gallery'
+    'PROMPT_MEDIA_ROOT=/var/lib/kulinerkit/prompt-gallery' \
+    'CHECKOUT_MEDIA_ROOT=/var/lib/kulinerkit/checkout'
   printf "PURCHASE_WEBHOOK_KEYS='%s'\n" "{\"primary\":{\"source\":\"app.lrmobileid.com\",\"secret\":\"$webhook_secret\"}}"
   for key in EMAIL_FROM SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_REQUIRE_TLS SMTP_USER SMTP_PASSWORD; do
     line=$(printf '%s\n' "$smtp_lines" | grep -m 1 "^${key}=") || {

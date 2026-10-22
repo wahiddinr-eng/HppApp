@@ -6,7 +6,7 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
   const dbUrl=new URL(process.env.HPP_TEST_DATABASE_URL!);
   expect(["localhost","127.0.0.1"]).toContain(dbUrl.hostname);expect(dbUrl.pathname).toMatch(/^\/hpp_test(?:_|$)/);
   const {auth}=await import("../../src/server/auth");
-  const {getPool,query}=await import("../../src/server/db");
+  const {query}=await import("../../src/server/db");
   const {getMigrations}=await import("better-auth/db/migration");
   const {processOneWebhook}=await import("../../src/server/worker");
   const {requestActivation}=await import("../../src/server/account");
@@ -100,7 +100,7 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     expect((await page.request.get("/api/account/token?"+new URLSearchParams({kind:"activation",token:backupToken!}))).status()).toBe(200);
     await page.getByRole("searchbox").fill(email);await expect(page.getByText(email,{exact:true}).first()).toBeVisible();
     page.once("dialog",dialog=>dialog.accept("Pengujian pencabutan akses"));await page.getByRole("button",{name:"Cabut",exact:true}).click();await expect(page.getByRole("status")).toContainText("diaudit");await expect(page.getByRole("button",{name:"Pulihkan",exact:true})).toBeVisible();
-    await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Integrasi & email"}).click();await expect(page.getByRole("heading",{name:"Webhook pembelian"})).toBeVisible();
+    await page.getByRole("navigation",{name:"Navigasi admin seluler"}).getByRole("link",{name:"Webhook & email"}).click();await expect(page.getByRole("heading",{name:"Webhook pembelian"})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(runtimeErrors).toEqual([]);
-  }finally{await getPool().end();}
+  }finally{await page.close();}
 });

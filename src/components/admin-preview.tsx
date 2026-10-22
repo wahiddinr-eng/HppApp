@@ -62,7 +62,7 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
 
   return <>
     <PageTop eyebrow={area==="access"?"ADMIN / PENGGUNA":"ADMIN / OPERASIONAL"} title={area==="access"?"Pengguna & akses":"Integrasi & email"}
-      description={area==="access"?"Satu pembelian dapat memberi beberapa hak fitur. Tindakan akses tercatat dalam audit.":"Pantau webhook pembelian, antrean email, dan kesehatan worker."}
+      description={area==="access"?"Satu pembelian dapat memberi beberapa hak fitur. Tindakan akses tercatat dalam audit.":"Pantau webhook pembelian LRMobileID, antrean email, dan kesehatan worker."}
       actions={<button className="button secondary" disabled={loading} onClick={()=>void load()}><RefreshCw size={15}/>{loading?"Memuat...":"Perbarui data"}</button>}/>
     {notice&&<div className="form-message" role="status">{notice}</div>}
     {area==="access"?<>

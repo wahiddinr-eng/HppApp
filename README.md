@@ -2,6 +2,8 @@
 
 Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD kalkulator HPP](./PRD.md). Alurnya mengikuti kebutuhan usaha: menyiapkan harga lewat HPP dan simulasi kanal, menyiapkan promosi lewat galeri prompt, lalu mencatat penjualan harian dan menganalisis hasilnya. Ini bukan aplikasi kasir; penjualan diisi sebagai rekap per hari. Akun dibuat dari pembelian yang tervalidasi; pendaftaran umum tidak tersedia.
 
+Halaman publik `/` adalah landing page KulinerKit dengan penjelasan fitur, simulasi biaya sederhana, cara mulai, dan tanya jawab. Harga awal Rp125.000 ditampilkan bersama harga coret Rp299.000. Tombol beli membuka checkout mandiri `/checkout`, lalu pelanggan menerima tautan pembayaran melalui email. Login tetap di `/login`, ruang kerja pelanggan di `/app`. Meta Pixel/CAPI tersedia tetapi nonaktif sampai dataset baru dan kredensialnya disimpan di `/admin/meta`.
+
 ## Fitur yang tersedia
 
 - Better Auth: login, logout, aktivasi sekali pakai 24 jam, reset 60 menit, perubahan password dan pencabutan sesi.
@@ -18,6 +20,10 @@ Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD 
 - Worker webhook/email dengan locking, retry eksponensial, heartbeat, dan pembersihan payload token yang selesai/kedaluwarsa.
 - Panel admin terpisah di `/admin`: dashboard jumlah pengguna, pembelian unik, hak aktif, kartu prompt, dan job gagal; halaman pengguna/akses, integrasi/email, serta kartu prompt. Admin tidak dapat melihat resep milik pembeli melalui panel ini.
 - Admin dapat membuat tautan aktivasi cadangan 24 jam bagi customer yang masih menunggu aktivasi dari halaman Pengguna & akses. Tautan hanya ditampilkan sekali untuk disalin dan dibagikan secara pribadi; tautan lama serta email aktivasi yang masih antre dibatalkan. Tindakan dicatat dalam audit tanpa menyimpan tautan mentah.
+- Checkout langsung menjual satu bundle KulinerKit (HPP dan Galeri Prompt). Admin mengatur harga, QRIS statis, rekening bank, dan buka/tutup checkout di `/admin/checkout`. Pengaturan awal tertutup; jangan buka sampai rekening/QRIS serta SMTP siap. Pesanan ada di `/admin/transactions`; complete dilakukan setelah dana masuk dan mengirim email aktivasi/akses. Pending/failed dari complete mencabut hanya grant pesanan langsung itu. Dashboard menampilkan omzet terverifikasi dan grafik 30 hari khusus checkout langsung, terpisah dari pembelian LRMobileID.
+- Form checkout meminta nama, email, dan nomor WhatsApp aktif. Nomor HP Indonesia berawalan 08/62/+62 dinormalisasi menjadi `+62` dan terlihat pada transaksi admin. Pesanan lama yang dibuat sebelum kolom ini ada tetap dapat dibaca tanpa nomor.
+- Halaman `/pay/<token>` menampilkan instruksi pembayaran, status, tombol konfirmasi WhatsApp ke `0851 6121 8257`, dan template pesan berisi kode, email, nomor pembeli, metode, serta nominal. Pelanggan mengirim bukti pembayaran melalui chat; pesan WhatsApp bukan verifikasi otomatis. Tautan pembayaran bersifat rahasia, disimpan sebagai hash pada tabel pesanan dan dikirim lewat email.
+- Meta Pixel dan CAPI untuk checkout langsung: `ViewContent` di landing page, `InitiateCheckout` di checkout yang dibuka, dan `Purchase` sekali per pesanan saat admin mengubah status menjadi `complete`. Pixel/CAPI untuk dua event halaman memakai `event_id` yang sama; `Purchase` hanya dari CAPI karena perubahan status dilakukan admin, tanpa browser pembeli yang aktif. Webhook LRMobileID tidak menghasilkan event Meta di aplikasi ini.
 
 Sidebar pelanggan diurutkan berdasarkan perjalanan usaha: Beranda → Siapkan Harga (Bahan, HPP, Harga per Kanal, Target Untung) → Siapkan Promosi → Pantau Penjualan → Akun. Pada layar ponsel, menu tambahan ada di "Lainnya". Halaman target ada di `/app/profit-target`, rekap di `/app/sales`, dan analisis di `/app/sales/analysis`.
 
@@ -47,6 +53,22 @@ npm run worker
 ```
 
 Migrasi menjalankan schema Better Auth dan schema domain yang idempoten. Worker wajib berjalan terpisah dari web server agar event yang sudah diterima 202 tetap diproses meski browser ditutup.
+
+Untuk checkout lokal: buka `/admin/checkout`, isi rekening atau unggah QRIS asli, periksa harga, lalu aktifkan checkout. Uji pesanan di `/checkout`; email pelanggan berisi halaman pembayaran dan admin menerima notifikasi. Pastikan worker berjalan agar email Brevo terkirim. Di `/admin/transactions`, pilih status **complete** hanya setelah memeriksa dana masuk. Jangan menggunakan QRIS atau rekening contoh untuk menerima pembayaran sungguhan. Gambar QRIS disimpan di `CHECKOUT_MEDIA_ROOT`; gunakan path persisten pada VPS. Webhook pembelian LRMobileID tidak berubah dan tetap dapat dipakai paralel.
+
+## Meta Pixel dan Conversions API
+
+Gunakan **dataset/Pixel baru khusus KulinerKit** di Meta Events Manager; jangan memakai dataset LRMobileID agar optimasi dan laporan kedua bisnis tidak tercampur. Buat access token Conversions API untuk dataset itu. Setelah migrasi, buka **Admin → Meta Pixel & CAPI** (`/admin/meta`), isi Pixel ID, access token CAPI, versi Graph API, dan kode tes sementara bila sedang menguji. Aktifkan lalu simpan. Token dienkripsi menggunakan kunci yang diturunkan dari `AUTH_SECRET`, tidak dikirim kembali ke browser, dan hanya bisa diganti atau dihapus; pertahankan `AUTH_SECRET` yang sama di web dan worker serta jangan merotasinya tanpa memasukkan ulang token CAPI. Pengaturan admin langsung dibaca oleh web dan worker melalui database, jadi perubahan tidak memerlukan restart. Variabel `META_*` di environment hanya fallback bagi instalasi lama sampai pengaturan pertama disimpan di admin. Jangan gunakan `NEXT_PUBLIC_` atau mengirim token melalui chat. Pastikan halaman informasi privasi dan mekanisme persetujuan yang diperlukan untuk penggunaan Pixel/CAPI sudah disiapkan sebelum mengaktifkan tracking pada pengunjung nyata.
+
+| Aksi | Pixel browser | CAPI server | Nilai dan identitas |
+| --- | --- | --- | --- |
+| Landing page `/` dilihat | `ViewContent` | Event pasangannya, `event_id` sama | Harga terkini dan ID `kulinerkit_bundle` |
+| Checkout `/checkout` dibuka ketika aktif | `InitiateCheckout` | Event pasangannya, `event_id` sama | Harga terkini dan ID bundle yang sama |
+| Status pesanan berubah menjadi `complete` | Tidak, browser pembeli tidak dijamin aktif | `Purchase` dari worker, satu `event_id` stabil per pesanan | Harga snapshot pesanan, kode pesanan, email/HP/nama yang di-hash, IP/UA dan `_fbp`/`_fbc` bila tersedia |
+
+Ketiga event mengirim `action_source=website`, URL sumber tanpa token pembayaran, `currency=IDR`, `value`, `content_name`, `content_category`, `content_type=product`, `content_ids`, `contents`, dan `num_items`. Data identitas yang tersedia dinormalisasi dan di-hash SHA-256; IP, user-agent, `_fbp`, dan `_fbc` dikirim apa adanya sesuai [parameter CAPI Meta](https://github.com/facebook/facebook-nodejs-business-sdk/blob/main/README.md). Tidak ada event Pixel di `/pay/<token>` agar token rahasia pada URL tidak terkirim ke Meta. `Purchase` tidak dipicu saat pesanan baru/pending, tombol WhatsApp ditekan, ataupun pembelian masuk via webhook LRMobileID.
+
+Event CAPI masuk ke `meta_event_outbox` secara durable dan dikirim worker dengan retry. Pembalikan status `complete` sebelum pengiriman membatalkan event tertunda; event yang sudah diterima Meta tidak dapat ditarik kembali. Perubahan `complete` berulang tidak membuat `Purchase` baru. Halaman `/admin/meta` menampilkan **ringkasan** diterima/menunggu/gagal dan tombol mencoba ulang event gagal, bukan daftar log event. Mengganti Pixel ID, kode tes, atau menonaktifkan Meta membatalkan event antrean lama agar tidak masuk ke dataset atau mode pelaporan yang salah. Status “Diterima Meta” berarti API menerima event, bukan bukti atribusi/penjualan di Ads Manager. Payload event terminal dihapus, konteks matching checkout dipangkas setelah 30 hari. Verifikasi pada Events Manager → Test Events memakai kode uji sementara, periksa deduplikasi `ViewContent`/`InitiateCheckout`, dan buat transaksi uji khusus lalu tandai `complete` untuk memeriksa `Purchase`. **Kosongkan kode tes di admin** setelah uji agar event live masuk pelaporan normal. Tanpa ID/token yang valid dan uji di Events Manager, pengiriman nyata belum terverifikasi.
 
 Untuk mencoba analisis dengan akun customer demo lokal yang sudah berisi tiga produk final, jalankan `node --env-file=.env.local --import tsx scripts/seed-demo-sales.ts`. Skrip ini hanya menerima URL aplikasi/database localhost, menambahkan 14 hari data ilustratif, dan tidak menimpa hari yang sudah tercatat. Data demo tidak digunakan di produksi.
 
@@ -122,7 +144,9 @@ Status review_required membutuhkan rekonsiliasi manual dengan sumber pembelian. 
 - /api/sales/day: GET dengan `date=YYYY-MM-DD`, PUT untuk menyimpan rekap dengan `version` (konflik 409).
 - /api/sales/analysis: GET dengan `from` dan `to` untuk rangkuman serta pembanding periode sebelumnya.
 - /api/profile/guide: POST untuk menandai panduan awal selesai bagi customer yang login.
-- /api/admin/access dan integrations: khusus admin, setiap tindakan wajib alasan.
+- /api/admin/access dan integrations: khusus admin, tindakan akses/job wajib alasan; /api/admin/meta: pengaturan Pixel/CAPI terenkripsi dan ringkasan pengiriman.
+- /api/checkout: penawaran publik; /api/checkout/orders: buat pesanan; /api/checkout/orders/:token: halaman/status pembayaran; /api/admin/checkout dan /api/admin/transactions: pengaturan dan verifikasi admin.
+- /api/meta/events: konfigurasi Pixel publik terbatas dan penerimaan event halaman dengan validasi Origin/rate limit; token CAPI tetap hanya di server.
 
 Input uang/angka API berupa decimal string canonical dengan titik desimal tanpa pemisah ribuan. Snapshot dihitung server; hasil hitung dari client diabaikan. Request mutasi pengguna harus membawa Origin yang sesuai APP_BASE_URL.
 
@@ -150,6 +174,7 @@ Browser test menjalankan production server sementara di 127.0.0.1:3027 dan memer
 ## Sebelum produksi
 
 - Lengkapi source/product ID, HTTPS domain, SMTP dan kontak support nyata. Integrasi ke pengirim pembelian serta pengiriman email nyata belum bisa dinyatakan selesai tanpa konfigurasi tersebut.
+- Siapkan dataset Meta **khusus KulinerKit** beserta token CAPI-nya, tinjau informasi privasi/persetujuan pengunjung, lalu aktifkan dan uji event di Events Manager. Jangan memakai Pixel atau token LRMobileID.
 - Jalankan build/start dan worker sebagai service terpisah dengan restart otomatis; jalankan migrasi sebagai langkah rilis terkontrol.
 - Gunakan role DB aplikasi terbatas, TLS DB bila remote, backup teruji dan monitoring worker/outbox. Jangan membuka PostgreSQL ke publik.
 - Reverse proxy harus membersihkan header IP dari client dan memberikan header IP tepercaya. Konfigurasikan kebijakan trusted proxy Better Auth sesuai infrastruktur. Default library membatasi request secara konservatif bila IP tidak dikenali; jangan mempercayai X-Forwarded-For arbitrer.

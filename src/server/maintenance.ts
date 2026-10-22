@@ -4,6 +4,9 @@ export async function maintainRetention(){
     await client.query("DELETE FROM app_rate_limit WHERE expires_at<now()-interval '1 day'");
     await client.query("UPDATE email_outbox SET payload=NULL,status='expired' WHERE expires_at<now() AND status IN ('pending','failed')");
     await client.query("UPDATE email_outbox SET payload=NULL WHERE status IN ('sent','cancelled','expired') AND payload IS NOT NULL");
+    await client.query("UPDATE meta_event_outbox SET status='expired',payload=NULL WHERE event_time<now()-interval '6 days' AND status IN ('pending','failed')");
+    await client.query("UPDATE meta_event_outbox SET payload=NULL WHERE status IN ('sent','cancelled','expired') AND payload IS NOT NULL");
+    await client.query("UPDATE checkout_order SET meta_context='{}'::jsonb WHERE COALESCE(completed_at,created_at)<now()-interval '30 days' AND meta_context<>'{}'::jsonb");
     await client.query("UPDATE webhook_event SET payload=jsonb_build_object('purchase',jsonb_build_object('id',payload->'purchase'->>'id')) WHERE status IN ('processed','ignored') AND created_at<now()-interval '30 days' AND payload ? 'schema_version'");
     // Keep grant, purchase state, event IDs and body hashes; only diagnostic bodies are trimmed.
   });

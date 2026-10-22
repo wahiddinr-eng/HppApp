@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {createSmtpTransport} from "./smtp";
 import { buildTransactionalEmail } from "./email-template";
+import { buildCheckoutEmail } from "./checkout-email";
 import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 
@@ -38,12 +39,14 @@ export async function processOneEmail(): Promise<boolean> {
         return true;
       }
       if(!process.env.SMTP_HOST || !process.env.EMAIL_FROM) throw new Error("SMTP_NOT_CONFIGURED");
-      if(job.kind!=="activation" && job.kind!=="password_reset" && job.kind!=="access_given") throw new Error("EMAIL_INVALID_KIND");
+      if(job.kind!=="activation" && job.kind!=="password_reset" && job.kind!=="access_given" && job.kind!=="checkout_payment" && job.kind!=="checkout_admin") throw new Error("EMAIL_INVALID_KIND");
       const baseUrl=process.env.APP_BASE_URL;
       if(!baseUrl) throw new Error("EMAIL_INVALID_URL");
       const actionUrl=job.payload?.url;
       if((job.kind==="activation" || job.kind==="password_reset") && typeof actionUrl!=="string") throw new Error("EMAIL_INVALID_URL");
-      const message=buildTransactionalEmail(job.kind,typeof actionUrl==="string"?actionUrl:baseUrl,process.env.SUPPORT_CONTACT_URL||baseUrl);
+      const message=job.kind==="checkout_payment"||job.kind==="checkout_admin"
+        ? buildCheckoutEmail(job.kind,job.payload)
+        : buildTransactionalEmail(job.kind,typeof actionUrl==="string"?actionUrl:baseUrl,process.env.SUPPORT_CONTACT_URL||baseUrl);
       const transport = createSmtpTransport();
       const sent = await transport.sendMail({from:process.env.EMAIL_FROM,to:job.recipient,...message,messageId:`<hpp-${job.id}@${new URL(baseUrl).hostname}>`});
       await client.query("UPDATE email_outbox SET status='sent',sent_at=now(),provider_message_id=$2,payload=NULL,attempts=attempts+1,last_error=NULL WHERE id=$1",[job.id,sent.messageId]);

@@ -7,7 +7,7 @@ import { rateLimit } from "@/server/rate-limit";
 export async function GET(request:Request,{params}:{params:Promise<{area:string}>}){try{
   await requireActor(request,"admin");const {area}=await params;
   if(area==="dashboard"){
-    const [metrics,accounts,events,worker]=await Promise.all([
+    const [metrics,accounts,events,worker,sales,trend]=await Promise.all([
       query(`SELECT
         (SELECT count(*)::int FROM user_profile WHERE role='user') AS total_users,
         (SELECT count(*)::int FROM user_profile WHERE role='user' AND account_status='active') AS active_users,
@@ -15,15 +15,18 @@ export async function GET(request:Request,{params}:{params:Promise<{area:string}
         (SELECT count(DISTINCT g.user_id)::int FROM access_grant g JOIN user_profile p ON p.user_id=g.user_id
           WHERE p.role='user' AND p.account_status='active' AND g.status='active'
           AND (g.expires_at IS NULL OR g.expires_at>now())) AS users_with_access,
-        (SELECT count(DISTINCT (source,purchase_id))::int FROM access_grant) AS linked_purchases,
+        (SELECT count(DISTINCT (source,purchase_id))::int FROM access_grant WHERE source<>'kulinerkit_direct') AS linked_purchases,
         (SELECT count(*)::int FROM prompt_gallery_card WHERE active) AS active_prompt_cards,
         (SELECT count(*)::int FROM webhook_event WHERE status='failed') AS failed_webhooks,
-        (SELECT count(*)::int FROM email_outbox WHERE status='failed') AS failed_emails`),
+        (SELECT count(*)::int FROM email_outbox WHERE status='failed') AS failed_emails,
+        (SELECT count(*)::int FROM meta_event_outbox WHERE status='failed') AS failed_meta_events`),
       query('SELECT u.email,u.name,p.account_status,p.created_at FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 ORDER BY p.created_at DESC LIMIT 5',["user"]),
       query("SELECT event_id,source,payload->'purchase'->>'id' AS purchase_id,status,stage,created_at FROM webhook_event ORDER BY created_at DESC LIMIT 5"),
       query("SELECT name,last_seen FROM worker_health ORDER BY name"),
+      query("SELECT count(*) FILTER (WHERE status='complete')::int AS completed,count(*) FILTER (WHERE status='pending')::int AS pending,count(*) FILTER (WHERE status='failed')::int AS failed,coalesce(sum(price) FILTER (WHERE status='complete'),0)::bigint AS revenue FROM checkout_order"),
+      query("SELECT to_char(days.day,'YYYY-MM-DD') AS day,coalesce(sum(o.price),0)::bigint AS revenue,count(o.id)::int AS orders FROM generate_series(current_date-interval '29 days',current_date,interval '1 day') days(day) LEFT JOIN checkout_order o ON o.status='complete' AND o.completed_at::date=days.day::date GROUP BY days.day ORDER BY days.day"),
     ]);
-    return privateJson({metrics:metrics.rows[0],recentAccounts:accounts.rows,recentEvents:events.rows,worker:worker.rows,updatedAt:new Date().toISOString()});
+    return privateJson({metrics:metrics.rows[0],sales:sales.rows[0],trend:trend.rows,recentAccounts:accounts.rows,recentEvents:events.rows,worker:worker.rows,updatedAt:new Date().toISOString()});
   }
   if(area==="access"){
     const search=(new URL(request.url).searchParams.get("search")||"").slice(0,254);

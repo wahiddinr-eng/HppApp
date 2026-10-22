@@ -37,6 +37,56 @@ CREATE TABLE IF NOT EXISTS email_outbox (
   provider_message_id text, last_error text, created_at timestamptz NOT NULL DEFAULT now(), sent_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS email_pending ON email_outbox(next_attempt) WHERE status IN ('pending','failed');
+CREATE TABLE IF NOT EXISTS checkout_settings (
+  id integer PRIMARY KEY DEFAULT 1 CHECK (id=1),
+  price integer NOT NULL DEFAULT 125000 CHECK (price>0),
+  compare_price integer NOT NULL DEFAULT 299000 CHECK (compare_price>price),
+  enabled boolean NOT NULL DEFAULT false,
+  bank_name text NOT NULL DEFAULT '', account_number text NOT NULL DEFAULT '', account_holder text NOT NULL DEFAULT '',
+  qris_image_key text, qris_image_mime text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO checkout_settings(id) VALUES(1) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS meta_settings (
+  id integer PRIMARY KEY DEFAULT 1 CHECK (id=1),
+  enabled boolean NOT NULL DEFAULT false,
+  pixel_id text NOT NULL DEFAULT '',
+  capi_token_ciphertext text,
+  graph_api_version text NOT NULL DEFAULT 'v26.0',
+  test_event_code text NOT NULL DEFAULT '',
+  version integer NOT NULL DEFAULT 1,
+  updated_by text REFERENCES "user"(id),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS checkout_order (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), code text NOT NULL UNIQUE,
+  token_hash text NOT NULL UNIQUE, customer_name text NOT NULL, customer_email text NOT NULL,
+  customer_phone text,
+  meta_context jsonb NOT NULL DEFAULT '{}'::jsonb,
+  payment_method text NOT NULL CHECK(payment_method IN ('qris','bank')),
+  price integer NOT NULL CHECK(price>0), compare_price integer NOT NULL CHECK(compare_price>price),
+  payment_snapshot jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','failed','complete')),
+  version integer NOT NULL DEFAULT 1, user_id text REFERENCES "user"(id),
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), completed_at timestamptz
+);
+ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS customer_phone text;
+ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS meta_context jsonb NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS checkout_order_created ON checkout_order(created_at DESC);
+CREATE INDEX IF NOT EXISTS checkout_order_email ON checkout_order(customer_email);
+CREATE TABLE IF NOT EXISTS meta_event_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_id text NOT NULL UNIQUE,
+  event_name text NOT NULL CHECK(event_name IN ('ViewContent','InitiateCheckout','Purchase')),
+  pixel_id text,
+  test_event_code text NOT NULL DEFAULT '',
+  order_id uuid REFERENCES checkout_order(id), event_time timestamptz NOT NULL,
+  payload jsonb, status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','failed','sent','expired','cancelled')),
+  attempts integer NOT NULL DEFAULT 0, next_attempt timestamptz NOT NULL DEFAULT now(),
+  last_error text, sent_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE meta_event_outbox ADD COLUMN IF NOT EXISTS pixel_id text;
+ALTER TABLE meta_event_outbox ADD COLUMN IF NOT EXISTS test_event_code text NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS meta_event_outbox_pending ON meta_event_outbox(next_attempt,created_at) WHERE status IN ('pending','failed');
 CREATE TABLE IF NOT EXISTS account_token (
   token_hash text PRIMARY KEY, user_id text NOT NULL REFERENCES "user"(id), kind text NOT NULL,
   expires_at timestamptz NOT NULL, consumed_at timestamptz, revoked_at timestamptz,
