@@ -57,3 +57,14 @@ export function MetaPageEvent({ name, price }: { name: EventName; price: number 
   }, [name, price]);
   return null;
 }
+
+export function trackPurchasePixel(pixelId: string, eventId: string, price: number, orderCode: string) {
+  // Never initialize Meta while the bearer payment token remains in the URL.
+  if (window.location.pathname !== "/pay/verified") return false;
+  initPixel(pixelId)("trackSingle", pixelId, "Purchase", {
+    currency: "IDR", value: price, content_name: "KulinerKit", content_category: "Toolkit usaha kuliner",
+    content_type: "product", content_ids: [productId], contents: [{ id: productId, quantity: 1, item_price: price }],
+    num_items: 1, order_id: orderCode,
+  }, { eventID: eventId });
+  return true;
+}

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 test.skip(!process.env.HPP_TEST_DATABASE_URL,"A local hpp_test database is required.");
 test("Direct checkout shows sale price, WhatsApp confirmation, and admin completion",async({page})=>{
+  const buyerPage=await page.context().newPage();
   const dbUrl=new URL(process.env.HPP_TEST_DATABASE_URL!);
   expect(["localhost","127.0.0.1"]).toContain(dbUrl.hostname);
   expect(dbUrl.pathname).toMatch(/^\/hpp_test(?:_|$)/);
@@ -15,8 +16,10 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
   const password="checkout-browser-password-123";
   const metaEnabled=process.env.META_TRACKING_ENABLED==="true";
   const observedMeta:{name:string;eventId:string}[]=[];
+  const metaScriptRequests:{url:string;referer:string}[]=[];
   if(metaEnabled){
     await page.route("https://connect.facebook.net/**",route=>route.abort());
+    await buyerPage.route("https://connect.facebook.net/**",route=>{metaScriptRequests.push({url:route.request().url(),referer:route.request().headers().referer||""});return route.abort();});
     page.on("request",request=>{if(request.url().endsWith("/api/meta/events")&&request.method()==="POST")observedMeta.push(request.postDataJSON());});
   }
   try{
@@ -58,6 +61,9 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
     expect(decodeURIComponent(href!)).toContain(email);
     expect(decodeURIComponent(href!)).toContain("+6281234567890");
     expect(decodeURIComponent(href!)).toContain("Rp125.000");
+    await buyerPage.goto(paymentUrl);
+    await expect(buyerPage.getByText("Menunggu verifikasi pembayaran")).toBeVisible();
+    await expect(buyerPage.getByRole("button",{name:"Sudah bayar? Perbarui status"})).toBeVisible();
     await page.goto("/login");
     await page.getByLabel("Alamat email").fill(adminEmail);
     await page.getByLabel("Password",{exact:true}).fill(password);
@@ -90,21 +96,41 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
     await page.getByRole("textbox",{name:"Alasan perubahan"}).fill("Dana sudah masuk ke rekening");
     await page.getByRole("button",{name:"Simpan status"}).click();
     await expect(page.getByRole("status")).toContainText("complete");
+    let purchaseEventId="";
     if(metaEnabled){
-      const meta=await query("SELECT event_name,status,payload FROM meta_event_outbox WHERE order_id=(SELECT id FROM checkout_order WHERE code=$1)",[code]);
+      const meta=await query("SELECT event_id,event_name,status,payload FROM meta_event_outbox WHERE order_id=(SELECT id FROM checkout_order WHERE code=$1)",[code]);
       expect(meta.rows).toHaveLength(1);
       expect(meta.rows[0].event_name).toBe("Purchase");
       expect(meta.rows[0].status).toBe("pending");
       expect(meta.rows[0].payload.custom_data.value).toBe(125000);
+      expect(meta.rows[0].payload.event_source_url).toBe("http://127.0.0.1:3027/pay/verified");
+      purchaseEventId=meta.rows[0].event_id;
       expect(observedMeta.map(event=>event.name)).not.toContain("Purchase");
     }
     const grants=await query("SELECT feature_key,status FROM access_grant WHERE purchase_id=(SELECT id::text FROM checkout_order WHERE code=$1) ORDER BY feature_key",[code]);
     expect(grants.rows.map(row=>row.feature_key)).toEqual(["hpp_calculator","prompt_gallery"]);
-    await page.goto(paymentUrl);
-    await expect(page.getByText("Pembayaran terverifikasi")).toBeVisible();
-    await page.setViewportSize({width:390,height:844});
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await buyerPage.getByRole("button",{name:"Sudah bayar? Perbarui status"}).click();
+    await expect(buyerPage).toHaveURL(/\/pay\/verified$/);
+    await expect(buyerPage.getByText("Pembayaran terverifikasi").first()).toBeVisible();
+    if(metaEnabled){
+      const purchase=await buyerPage.evaluate(()=>(window as any).fbq?.queue?.filter((args:unknown[])=>args[2]==="Purchase")||[]);
+      expect(purchase).toHaveLength(1);
+      expect(purchase[0][4]?.eventID).toBe(purchaseEventId);
+      expect(purchase[0][3]?.value).toBe(125000);
+      expect(purchase[0][3]?.order_id).toBe(code);
+      expect(await buyerPage.evaluate(token=>location.href.includes("/pay/verified")&&!location.href.includes(token),paymentUrl.split("/").at(-1)!)).toBe(true);
+      expect(metaScriptRequests).toHaveLength(1);
+      expect(JSON.stringify(metaScriptRequests)).not.toContain(paymentUrl.split("/").at(-1)!);
+      expect(await buyerPage.evaluate(token=>!document.referrer.includes(token),paymentUrl.split("/").at(-1)!)).toBe(true);
+      await buyerPage.goto(paymentUrl);
+      await expect(buyerPage).toHaveURL(/\/pay\/verified$/);
+      const repeated=await buyerPage.evaluate(()=>(window as any).fbq?.queue?.filter((args:unknown[])=>args[2]==="Purchase")||[]);
+      expect(repeated).toHaveLength(0);
+    }
+    await buyerPage.setViewportSize({width:390,height:844});
+    expect(await buyerPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }finally{
+    await buyerPage.close().catch(()=>undefined);
     await query("UPDATE checkout_settings SET enabled=false WHERE id=1").catch(()=>undefined);
   }
 });

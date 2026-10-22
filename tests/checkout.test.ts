@@ -19,7 +19,8 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
   const {query,getPool}=await import("../src/server/db");
   const {createCheckoutOrder,findCheckoutOrder,setCheckoutOrderStatus,getCheckoutSettings,orderSchema}=await import("../src/server/checkout");
   const {buildCheckoutEmail}=await import("../src/server/checkout-email");
-  const {processOneMetaEvent,enqueuePageMetaEvent}=await import("../src/server/meta");
+  const {processOneMetaEvent,enqueuePageMetaEvent,purchaseBrowserEvent}=await import("../src/server/meta");
+  const paymentRoute=await import("../src/app/api/checkout/orders/[token]/route");
   const {saveMetaSettings,adminMetaSettings,metaConfig}=await import("../src/server/meta-settings");
   const suffix=randomUUID();
   const email=`checkout-${suffix}@example.test`;
@@ -58,6 +59,10 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     const idResult=await query("SELECT id,token_hash,version FROM checkout_order WHERE code=$1",[result.code]);
     const id=idResult.rows[0].id as string;
     assert.notEqual(idResult.rows[0].token_hash,token);
+    assert.equal(await purchaseBrowserEvent(id),null);
+    const pendingBody=await (await paymentRoute.GET(new Request(result.url),{params:Promise.resolve({token})})).json();
+    assert.equal(pendingBody.metaPurchase,null);
+    assert.equal("id" in pendingBody,false);
     const jobs=await query("SELECT kind,payload FROM email_outbox WHERE dedup_key LIKE $1",[`checkout:${id}:%`]);
     assert.equal(jobs.rows.filter(row=>row.kind==="checkout_payment").length,1);
     const adminJob=jobs.rows.find(row=>row.kind==="checkout_admin");
@@ -82,6 +87,10 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     assert.equal(meta.rows[0].payload.custom_data.value,125000);
     assert.equal(meta.rows[0].payload.user_data.client_ip_address,"203.0.113.10");
     assert.notEqual(meta.rows[0].payload.user_data.em,email);
+    assert.deepEqual(await purchaseBrowserEvent(id),{eventId:meta.rows[0].event_id,pixelId:"123456789012345"});
+    const completeBody=await (await paymentRoute.GET(new Request(result.url),{params:Promise.resolve({token})})).json();
+    assert.deepEqual(completeBody.metaPurchase,{eventId:meta.rows[0].event_id,pixelId:"123456789012345"});
+    assert.equal("id" in completeBody,false);
     assert.equal((await query("SELECT count(*)::int n FROM email_outbox WHERE user_id IS NOT NULL AND kind='activation_request' AND dedup_key LIKE $1",[`checkout:${id}:%`])).rows[0].n,1);
     const buyer=(await query("SELECT user_id FROM checkout_order WHERE id=$1",[id])).rows[0].user_id;
     await query("INSERT INTO access_grant(user_id,source,purchase_id,item_id,product_id,feature_key,status) VALUES($1,'lrmobileid-test',$2,'item','product','hpp_calculator','active')",[buyer,`lr-${suffix}`]);
@@ -91,6 +100,7 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     meta=await query("SELECT event_id,status,payload FROM meta_event_outbox WHERE order_id=$1",[id]);
     assert.equal(meta.rows[0].status,"cancelled");
     assert.equal(meta.rows[0].payload,null);
+    assert.equal(await purchaseBrowserEvent(id),null);
     await setCheckoutOrderStatus(id,"complete",3,"admin-test","Dana diterima ulang");
     meta=await query("SELECT event_id,status,payload FROM meta_event_outbox WHERE order_id=$1",[id]);
     assert.equal(meta.rows.length,1);
@@ -114,5 +124,6 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE event_id=$1",[pageEventId])).rows[0].status,"cancelled");
     assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE event_id=$1",[pageEventId])).rows[0].payload,null);
     assert.equal((await metaConfig()).pixelId,"987654321012345");
+    assert.equal(await purchaseBrowserEvent(id),null);
   }finally{await getPool().end();}
 });

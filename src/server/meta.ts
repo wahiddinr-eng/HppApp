@@ -38,7 +38,7 @@ function customData(value: number, orderCode?: string) {
     ...(orderCode ? { order_id: orderCode } : {}) };
 }
 
-function sourceUrl(path: "/" | "/checkout") { return new URL(path, process.env.APP_BASE_URL!).toString(); }
+function sourceUrl(path: "/" | "/checkout" | "/pay/verified") { return new URL(path, process.env.APP_BASE_URL!).toString(); }
 function pageEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, context: MetaContext): MetaEvent {
   return { event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: eventId,
     event_source_url: sourceUrl(name === "ViewContent" ? "/" : "/checkout"), action_source: "website",
@@ -62,7 +62,7 @@ export function buildPurchaseMetaEvent(order: {id:string;code:string;price:numbe
   if (names[0]) user_data.fn = hash(names[0]);
   if (names.length > 1) user_data.ln = hash(names.at(-1)!);
   const event: MetaEvent = { event_name: "Purchase", event_time: Math.floor(Date.now() / 1000), event_id: `kulinerkit-purchase-${order.id}`,
-    event_source_url: sourceUrl("/checkout"), action_source: "website", user_data, custom_data: customData(order.price, order.code) };
+    event_source_url: sourceUrl("/pay/verified"), action_source: "website", user_data, custom_data: customData(order.price, order.code) };
   return event;
 }
 
@@ -76,6 +76,17 @@ export async function enqueuePurchaseMetaEvent(client: PoolClient, order: Parame
 
 export async function cancelUnsentPurchaseMetaEvent(client: PoolClient, orderId: string) {
   await client.query("UPDATE meta_event_outbox SET status='cancelled',payload=NULL WHERE order_id=$1 AND event_name='Purchase' AND status IN ('pending','failed')", [orderId]);
+}
+
+export async function purchaseBrowserEvent(orderId: string) {
+  const config = await metaConfig();
+  if (!config.enabled) return null;
+  const result = await query<{event_id:string;pixel_id:string|null;test_event_code:string;status:string}>(
+    "SELECT event_id,pixel_id,test_event_code,status FROM meta_event_outbox WHERE order_id=$1 AND event_name='Purchase'",
+    [orderId]);
+  const event = result.rows[0];
+  if (!event || !["pending","failed","sent"].includes(event.status) || event.pixel_id !== config.pixelId || event.test_event_code !== config.testEventCode) return null;
+  return { eventId: event.event_id, pixelId: config.pixelId };
 }
 
 export async function processOneMetaEvent(): Promise<boolean> {

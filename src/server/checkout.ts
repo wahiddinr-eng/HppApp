@@ -67,7 +67,7 @@ export async function createCheckoutOrder(input:z.infer<typeof orderSchema>,meta
 
 export async function findCheckoutOrder(token:string){
   if(!/^[a-f0-9]{64}$/.test(token))throw new DomainError(404,"ORDER_NOT_FOUND","Pesanan tidak ditemukan.");
-  const result=await query("SELECT code,customer_name,customer_email,customer_phone,payment_method,price,compare_price,payment_snapshot,status,created_at,updated_at FROM checkout_order WHERE token_hash=$1",[tokenHash(token)]);
+  const result=await query("SELECT id,code,customer_name,customer_email,customer_phone,payment_method,price,compare_price,payment_snapshot,status,created_at,updated_at FROM checkout_order WHERE token_hash=$1",[tokenHash(token)]);
   if(!result.rows[0])throw new DomainError(404,"ORDER_NOT_FOUND","Pesanan tidak ditemukan.");
   return result.rows[0];
 }

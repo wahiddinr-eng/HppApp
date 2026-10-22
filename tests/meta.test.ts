@@ -14,7 +14,7 @@ test("Meta Purchase uses the order snapshot and hashed matching data without pay
   assert.equal(event.event_name, "Purchase");
   assert.equal(event.action_source, "website");
   assert.equal(event.event_id, "kulinerkit-purchase-00000000-0000-4000-8000-000000000001");
-  assert.equal(event.event_source_url, "https://hpp.lrmobileid.com/checkout");
+  assert.equal(event.event_source_url, "https://hpp.lrmobileid.com/pay/verified");
   assert.equal(event.user_data.em, sha("budi@example.com"));
   assert.equal(event.user_data.ph, sha("6281234567890"));
   assert.equal(event.user_data.fn, sha("budi"));
@@ -24,7 +24,7 @@ test("Meta Purchase uses the order snapshot and hashed matching data without pay
   assert.equal(event.custom_data.value, 125000);
   assert.equal(event.custom_data.currency, "IDR");
   assert.equal(event.custom_data.order_id, "KK-123ABC");
-  assert.doesNotMatch(JSON.stringify(event), /BUDI@EXAMPLE|6281234567890|\/pay\//);
+  assert.doesNotMatch(JSON.stringify(event), /BUDI@EXAMPLE|6281234567890|\/pay\/[a-f0-9]{64}/);
 });
 
 test("Meta context accepts only bounded Meta cookies and valid IPs", () => {
