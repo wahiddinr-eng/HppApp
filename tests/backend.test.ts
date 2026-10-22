@@ -41,6 +41,7 @@ test("Backend integration: webhook, activation, access, revisions and admin", {s
   const calcRoute=await import("../src/app/api/calculations/route");
   const reportRoute=await import("../src/app/api/calculations/[id]/revisions/[revision]/report/route");
   const channelsRoute=await import("../src/app/api/calculations/[id]/channels/route");
+  const profitTargetRoute=await import("../src/app/api/profit-target/route");
   const salesDayRoute=await import("../src/app/api/sales/day/route");
   const salesAnalysisRoute=await import("../src/app/api/sales/analysis/route");
   const profileRoute=await import("../src/app/api/profile/route");
@@ -235,6 +236,33 @@ test("Backend integration: webhook, activation, access, revisions and admin", {s
       const bad=new Request(process.env.APP_BASE_URL+path,{method:"PUT",headers:{"Content-Type":"application/json",Origin:process.env.APP_BASE_URL!,Cookie:cookie},body:JSON.stringify({settings:[{...settings[0],commissionRate:"100"}]})});
       assert.equal((await channelsRoute.PUT(bad,params({id:calculationId}))).status,422);
     });
+    await t.test("Profit target is owner-scoped, validates three fields and prevents stale writes",async()=>{
+      const path="/api/profit-target";
+      assert.equal((await profitTargetRoute.GET(request(path))).status,401);
+      const initial=await profitTargetRoute.GET(request(path,undefined,cookie));
+      assert.equal(initial.status,200);
+      const data=await initial.json();
+      assert.equal(data.saved,null);
+      assert.ok(data.actual.recordedDays>=1);
+      assert.ok(data.recent.recordedDays>=1);
+      const settings={monthlyFixedCost:"1000000",monthlyProfitGoal:"500000",operatingDays:25};
+      const put=(body:unknown,origin=process.env.APP_BASE_URL!,selectedCookie=cookie)=>new Request(process.env.APP_BASE_URL+path,
+        {method:"PUT",headers:{"Content-Type":"application/json",Origin:origin,Cookie:selectedCookie},body:JSON.stringify(body)});
+      assert.equal((await profitTargetRoute.PUT(put({version:0,settings},"https://other.example"))).status,403);
+      assert.equal((await profitTargetRoute.PUT(put({version:0,settings:{...settings,operatingDays:0}}))).status,422);
+      assert.equal((await profitTargetRoute.PUT(put({version:0,settings:{...settings,monthlyFixedCost:"-1"}}))).status,422);
+      const saved=await profitTargetRoute.PUT(put({version:0,settings:{...settings,mix:[{calculationId,channelId:"direct",share:100}]}}));
+      assert.equal(saved.status,200);
+      const savedData=await saved.json();
+      assert.equal(savedData.saved.version,1);
+      assert.deepEqual(savedData.saved.settings,settings);
+      assert.equal((await profitTargetRoute.PUT(put({version:0,settings}))).status,409);
+      const updated=await profitTargetRoute.PUT(put({version:1,settings:{...settings,monthlyProfitGoal:"600000"}}));
+      assert.equal(updated.status,200);
+      assert.equal((await updated.json()).saved.version,2);
+      assert.equal((await (await profitTargetRoute.GET(request(path,undefined,cookie))).json()).saved.settings.monthlyProfitGoal,"600000");
+      assert.equal((await profitTargetRoute.PUT(put({version:2,settings},process.env.APP_BASE_URL!,""))).status,401);
+    });
     await t.test("Refund-before-paid, independent grants and partial refund review",async()=>{
       const refundId="refund-"+suffix;await accept(event(refundId,2,"refunded"));await processOneWebhook();await accept(event(refundId,1));await processOneWebhook();
       assert.equal((await query("SELECT status,user_id FROM access_grant WHERE purchase_id=$1",[refundId])).rows[0].status,"revoked");
@@ -246,6 +274,7 @@ test("Backend integration: webhook, activation, access, revisions and admin", {s
       await accept(event(secondId,3,"chargeback"));await processOneWebhook();
       await assert.rejects(()=>requireActor(request("/api/calculations",undefined,cookie)),{code:"ACCESS_INACTIVE"});
       assert.equal((await reportRoute.GET(request("/api/report",undefined,cookie),params({id:calculationId,revision:String(revision)}))).status,403);
+      assert.equal((await profitTargetRoute.GET(request("/api/profit-target",undefined,cookie))).status,403);
       assert.equal((await exportRoute.GET(request("/api/export?format=xlsx",undefined,cookie),params({id:calculationId,revision:String(revision)}))).status,403);
       assert.ok((await query("SELECT 1 FROM calculation WHERE id=$1",[calculationId])).rowCount);
     });

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleCheck, Images, Settings2, ShoppingBag, Store } from "lucide-react";
+import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleCheck, Images, Settings2, ShoppingBag, Store, Target } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageTop, Shell } from "./shell";
 import styles from "./guide.module.css";
@@ -24,6 +24,7 @@ export function Guide() {
     ...(canCalculate ? [
       { stage: "SIAPKAN HARGA", title: "Hitung HPP satu produk", description: "Masukkan biaya bahan, kemasan, tenaga kerja, dan produksi. Finalkan hasil agar produk siap dipakai di fitur lain.", href: "/app/calculations/new", action: "Buat HPP", icon: BookOpenText },
       { stage: "SIAPKAN HARGA", title: "Cek harga setiap kanal", description: "Simulasikan harga GoFood, ShopeeFood, atau kanal lain menggunakan tarif merchant Anda sendiri.", href: "/app/channels", action: "Cek harga", icon: Store },
+      { stage: "SIAPKAN HARGA", title: "Tetapkan target untung", description: "Isi biaya tetap, penghasilan yang diinginkan, dan hari berjualan untuk melihat target hasil usaha per hari.", href: "/app/profit-target", action: "Buat target", icon: Target },
     ] : []),
     ...(canGallery ? [
       { stage: "SIAPKAN PROMOSI", title: "Siapkan bahan promosi", description: "Pilih ide visual dari Galeri Prompt dan sesuaikan dengan produk Anda.", href: "/app/prompts", action: "Buka galeri", icon: Images },

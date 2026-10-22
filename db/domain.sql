@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS channel_price_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS channel_price_settings_owner ON channel_price_settings(owner_id);
+CREATE TABLE IF NOT EXISTS profit_target (
+  owner_id text PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+  settings jsonb NOT NULL,
+  version integer NOT NULL DEFAULT 1,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS daily_sales (
   owner_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
   sale_date date NOT NULL,

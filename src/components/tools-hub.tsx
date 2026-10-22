@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
+import { ArrowRight, BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store, Target } from "lucide-react";
 import { api } from "@/lib/api";
 import { KULINERKIT_WHATSAPP_URL } from "@/lib/support";
 import { PageTop, Shell } from "./shell";
@@ -20,6 +20,7 @@ export function ToolsHub() {
       { href: "/app/ingredients", icon: Layers3, title: "Bahan & Riwayat Harga", description: "Ubah harga bahan sekali dan lihat resep yang terdampak." },
       { href: "/app/calculations/new", icon: BookOpenText, title: "Kalkulator HPP", description: "Hitung biaya dan tentukan harga dasar." },
       { href: "/app/channels", icon: Store, title: "Harga per kanal", description: "Simulasikan harga GoFood dan kanal lainnya." },
+      { href: "/app/profit-target", icon: Target, title: "Target Untung & Titik Impas", description: "Tetapkan target hasil usaha tanpa membagi menu atau kanal." },
     ] : [] },
     { title: "Siapkan promosi", items: gallery ? [
       { href: "/app/prompts", icon: Images, title: "Galeri Prompt", description: "Temukan ide visual untuk promosi produk." },

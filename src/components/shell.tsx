@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { KULINERKIT_WHATSAPP_URL } from "@/lib/support";
-import { BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, LayoutDashboard, Menu, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store } from "lucide-react";
+import { BookOpenText, ChartColumnIncreasing, CircleHelp, Images, Layers3, LayoutDashboard, Menu, MessageCircle, Settings2, ShieldCheck, ShoppingBag, Store, Target } from "lucide-react";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -34,7 +34,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {canCalculate && <><div className="sidebar-divider" /><div className="workspace-label">SIAPKAN HARGA</div>
             <Link className={path === "/app/ingredients" ? "active" : ""} href="/app/ingredients"><Layers3 size={18} /> Bahan & harga</Link>
             <Link className={isHpp ? "active" : ""} href="/app/calculations/new"><BookOpenText size={18} /> Kalkulator HPP</Link>
-            <Link className={isPrice ? "active" : ""} href="/app/channels"><Store size={18} /> Harga per kanal</Link></>}
+            <Link className={isPrice ? "active" : ""} href="/app/channels"><Store size={18} /> Harga per kanal</Link>
+            <Link className={path === "/app/profit-target" ? "active" : ""} href="/app/profit-target"><Target size={18} /> Target untung</Link></>}
           {canGallery && <><div className="sidebar-divider" /><div className="workspace-label">SIAPKAN PROMOSI</div>
             <Link className={path.startsWith("/app/prompts") ? "active" : ""} href="/app/prompts"><Images size={18} /> Galeri Prompt</Link></>}
           {canCalculate && <><div className="sidebar-divider" /><div className="workspace-label">PANTAU PENJUALAN</div>

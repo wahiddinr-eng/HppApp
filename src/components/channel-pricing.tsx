@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Target, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { calculateChannelPrice, type ChannelSetting } from "@/lib/channel-pricing";
 import { rupiah } from "@/lib/hpp";
@@ -51,7 +51,7 @@ export function ChannelPricing({ id }: { id: string }) {
   }
 
   return <Shell>
-    <PageTop eyebrow="HARGA JUAL / KANAL" title="Harga untuk aplikasi pesan-antar" description="Simulasikan harga menu berdasarkan HPP produk Anda dan potongan yang benar-benar berlaku pada akun merchant." actions={<Link href={`/app/calculations/${id}/report`} className="button secondary"><ArrowLeft size={16} /> Kembali ke report</Link>} />
+    <PageTop eyebrow="HARGA JUAL / KANAL" title="Harga untuk aplikasi pesan-antar" description="Simulasikan harga menu berdasarkan HPP produk Anda dan potongan yang benar-benar berlaku pada akun merchant." actions={<><Link href="/app/profit-target" className="button secondary"><Target size={16} /> Buat target untung</Link><Link href={`/app/calculations/${id}/report`} className="button secondary"><ArrowLeft size={16} /> Kembali ke report</Link></>} />
     {error && <div className="form-message error" role="alert">{error}</div>}
     {notice && <div className="form-message" role="status">{notice}</div>}
     {!data ? <div className="panel channel-loading">{error ? "Simulasi belum dapat ditampilkan." : "Memuat resep dan pengaturan kanal..."}</div> : <>

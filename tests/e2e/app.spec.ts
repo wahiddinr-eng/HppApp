@@ -48,6 +48,20 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
       const downloadPromise=page.waitForEvent("download");await page.getByRole("button",{name:label}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toContain(extension);expect(await download.failure()).toBeNull();
     }
     const id=page.url().split("/").at(-2)!;
+    await page.getByRole("link",{name:"Target untung",exact:true}).click();
+    await expect(page.getByRole("heading",{name:"Target Untung & Titik Impas"})).toBeVisible();
+    await page.getByLabel("Biaya tetap bulanan").fill("450000");
+    await page.getByLabel("Penghasilan yang ingin dicapai per bulan").fill("450000");
+    await page.getByLabel("Hari berjualan per bulan").fill("25");
+    await expect(page.getByText("Rp18.000 / hari")).toBeVisible();
+    await expect(page.getByText("Rp36.000 / hari")).toBeVisible();
+    await expect(page.getByText("Belum cukup data penjualan")).toBeVisible();
+    await expect(page.getByText("REALISASI BULAN INI")).toBeVisible();
+    await page.getByRole("button",{name:"Simpan target usaha"}).click();
+    await expect(page.getByRole("status")).toContainText("Target usaha tersimpan");
+    await page.reload();
+    await expect(page.getByLabel("Biaya tetap bulanan")).toHaveValue("450000");
+    await page.goto("/app/calculations/"+id+"/report?revision=1");
     await page.getByRole("link",{name:"Edit",exact:true}).click();
     await page.locator("textarea").fill("Draft belum final");await expect(page.locator(".draft-badge")).toContainText("Tersimpan di server");
     const other=await context.newPage();await other.goto("/app/calculations/"+id+"/edit");await other.locator("textarea").fill("Perubahan tab lain");await expect(other.locator(".draft-badge")).toContainText("Tersimpan di server");
@@ -60,6 +74,8 @@ test("Buyer and admin workflows work on desktop and mobile",async({page,context}
     await other.close();
     await page.setViewportSize({width:390,height:844});await page.goto("/app/calculations");
     await expect(page.getByRole("heading",{name:"Selamat datang di ruang hitung Anda"})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.goto("/app/profit-target");await expect(page.getByRole("heading",{name:"Target Untung & Titik Impas"})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.goto("/app/calculations/new");await expect(page.getByRole("heading",{name:"Produk & produksi",exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

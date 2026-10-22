@@ -9,6 +9,7 @@ Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD 
 - Draft otomatis setelah 2 detik, optimistic locking antar-tab, finalisasi idempoten, revisi final immutable di database.
 - Mesin HPP decimal berpresisi 60 digit, pajak inclusive/exclusive, report dari snapshot server, PDF A4 dan Excel enam sheet.
 - Simulasi harga jual untuk GoFood, ShopeeFood, GrabFood, dan kanal lain dengan tarif merchant yang diisi sendiri.
+- Target Untung & Titik Impas: cukup simpan biaya tetap, penghasilan yang diinginkan, dan hari berjualan. Aplikasi menghitung kebutuhan hasil setelah HPP serta potongan per bulan/hari tanpa target per kanal. Perkiraan jumlah produk hanya ditampilkan jika tersedia sedikitnya 7 hari rekap dan 20 produk terjual dalam 30 hari terakhir; realisasi bulan berjalan juga ditampilkan. Ini simulasi, bukan jaminan laba.
 - Daftar Bahan & Riwayat Harga: tautkan satu bahan ke beberapa resep, pratinjau perubahan HPP/margin, lalu konfirmasi pembaruan. Menu final mendapat revisi baru dengan harga jual pilihan tetap; revisi dan rekap penjualan lama tidak ditimpa.
 - Galeri prompt promosi untuk pelanggan berhak akses, dikelola dari panel admin.
 - Penjualan Harian: jumlah pesanan, produk terjual, omzet kotor, potongan kanal, catatan, dan hari tanpa penjualan. HPP produk disimpan sebagai snapshot saat rekap pertama dibuat, sehingga perubahan resep berikutnya tidak mengubah analisis historis.
@@ -18,7 +19,7 @@ Aplikasi pendamping bisnis kuliner dengan backend PostgreSQL, berawal dari [PRD 
 - Panel admin terpisah di `/admin`: dashboard jumlah pengguna, pembelian unik, hak aktif, kartu prompt, dan job gagal; halaman pengguna/akses, integrasi/email, serta kartu prompt. Admin tidak dapat melihat resep milik pembeli melalui panel ini.
 - Admin dapat membuat tautan aktivasi cadangan 24 jam bagi customer yang masih menunggu aktivasi dari halaman Pengguna & akses. Tautan hanya ditampilkan sekali untuk disalin dan dibagikan secara pribadi; tautan lama serta email aktivasi yang masih antre dibatalkan. Tindakan dicatat dalam audit tanpa menyimpan tautan mentah.
 
-Sidebar pelanggan diurutkan berdasarkan perjalanan usaha: Beranda → Siapkan Harga → Siapkan Promosi → Pantau Penjualan → Akun. Pada layar ponsel, menu tambahan ada di "Lainnya". Halaman rekap ada di `/app/sales`, dan analisis di `/app/sales/analysis`.
+Sidebar pelanggan diurutkan berdasarkan perjalanan usaha: Beranda → Siapkan Harga (Bahan, HPP, Harga per Kanal, Target Untung) → Siapkan Promosi → Pantau Penjualan → Akun. Pada layar ponsel, menu tambahan ada di "Lainnya". Halaman target ada di `/app/profit-target`, rekap di `/app/sales`, dan analisis di `/app/sales/analysis`.
 
 Halaman `/app/ingredients` menyimpan harga per satuan (g, kg, ml, liter, atau buah). Resep yang sudah ada **tidak ditautkan otomatis** berdasarkan nama: buka resep, pilih bahan yang sesuai pada setiap baris, lalu finalkan revisinya sekali. Setelah itu, perubahan harga dari daftar bahan dapat diterapkan ke semua resep aktif yang tertaut dalam satu konfirmasi. Draft diperbarui sebagai draft; menu final mendapatkan revisi final baru. Bila harga jual awal memakai saran otomatis, pembaruan bahan membekukan harga jual sebelumnya sebagai harga pilihan agar harga tidak naik diam-diam; saran harga baru tetap ditampilkan. Resep arsip tidak diperbarui otomatis. Perubahan harga katalog bukan pencatatan stok atau biaya pembelian aktual setiap batch.
 
@@ -48,6 +49,8 @@ npm run worker
 Migrasi menjalankan schema Better Auth dan schema domain yang idempoten. Worker wajib berjalan terpisah dari web server agar event yang sudah diterima 202 tetap diproses meski browser ditutup.
 
 Untuk mencoba analisis dengan akun customer demo lokal yang sudah berisi tiga produk final, jalankan `node --env-file=.env.local --import tsx scripts/seed-demo-sales.ts`. Skrip ini hanya menerima URL aplikasi/database localhost, menambahkan 14 hari data ilustratif, dan tidak menimpa hari yang sudah tercatat. Data demo tidak digunakan di produksi.
+
+Untuk contoh **Bahan & Harga** dan **Target Untung**, jalankan `npm run db:migrate`, lalu `node --env-file=.env.local --import tsx scripts/seed-demo-planning.ts`. Skrip ini menambahkan 12 bahan contoh ke akun `demo.customer.local@hpp.test`, menghubungkan sebagian bahan ke tiga produk demo tanpa mengubah HPP, dan menyimpan rencana target ilustratif (biaya tetap Rp2.500.000, target penghasilan Rp3.000.000, 26 hari jualan). Resep/target yang sudah diedit tidak ditimpa; skrip hanya menerima database serta URL aplikasi lokal.
 
 Buka http://localhost:3000/login. Tanpa konfigurasi database/secret, API menolak permintaan dan halaman aplikasi menampilkan petunjuk konfigurasi, bukan akses demo. Tanpa SMTP, grant tetap tersimpan tetapi email gagal dan masuk antrean retry; pantau panel integrasi.
 
