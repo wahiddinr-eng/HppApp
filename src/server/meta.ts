@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 import { metaConfig } from "./meta-settings";
+import { postMetaEvent } from "./meta-transport";
 export { metaConfig } from "./meta-settings";
 
 export const META_PRODUCT_ID = "kulinerkit_bundle";
@@ -104,11 +105,7 @@ export async function processOneMetaEvent(): Promise<boolean> {
     if (!config.enabled) return false;
     try {
       const url = `https://graph.facebook.com/${config.version}/${config.pixelId}/events`;
-      const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.token}` },
-        body: JSON.stringify({ data: [job.payload], ...(job.test_event_code ? { test_event_code: job.test_event_code } : {}) }),
-        signal: AbortSignal.timeout(10000) });
-      if (!response.ok) throw new Error(`HTTP_${response.status}`);
-      const body = await response.json() as { events_received?: number };
+      const body = await postMetaEvent(url, config.token!, { data: [job.payload], ...(job.test_event_code ? { test_event_code: job.test_event_code } : {}) });
       if (body.events_received !== 1) throw new Error("META_EVENT_NOT_RECEIVED");
       await client.query("UPDATE meta_event_outbox SET status='sent',sent_at=now(),payload=NULL,last_error=NULL,attempts=attempts+1 WHERE id=$1", [job.id]);
     } catch (error) {
