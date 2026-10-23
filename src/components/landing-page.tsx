@@ -4,6 +4,7 @@ import { KULINERKIT_WHATSAPP_URL } from "@/lib/support";
 import { LandingNav } from "./landing-nav";
 import { LandingDemo } from "./landing-demo";
 import { LandingOffer } from "./landing-offer";
+import { LandingPromptComparison } from "./landing-prompt-comparison";
 import styles from "./landing.module.css";
 
 const faqs = [
@@ -44,8 +45,8 @@ export function LandingPage() {
       <section className={`${styles.container} ${styles.hero}`} aria-labelledby="hero-title">
         <div className={styles.heroCopy}>
           <div className={styles.eyebrow}><span className={styles.liveDot} /> BEKAL TUMBUH USAHA KULINER</div>
-          <h1 id="hero-title">Masak pakai hati.<br />Jualan pakai<br /><em>perhitungan.</em></h1>
-          <p>Rasa enak adalah awal. Kenali biaya, siapkan promosi, dan pahami hasil jualan Anda—dalam satu tempat yang mudah digunakan.</p>
+          <h1 id="hero-title">Hitung dulu<br />biaya menunya.<br />Lalu siapkan<br /><em>promosinya.</em></h1>
+          <p>Ketahui biaya produksi dan tentukan harga jual dengan kalkulator HPP. Setelah itu, pilih prompt siap pakai untuk mengubah foto makanan menjadi visual promosi di alat AI pilihan Anda. Semua dimulai dari KulinerKit.</p>
           <div className={styles.heroActions}><a href="#mulai" className={styles.primaryButton}>Mulai lebih terarah <ArrowUpRight size={19} /></a><a href="#simulasi" className={styles.textButton}>Coba hitungan sederhana <ArrowDown size={16} /></a></div>
           <div className={styles.heroChecks}><span><Check size={14} /> Buka di HP & laptop</span><span><Check size={14} /> Tanpa instalasi</span></div>
         </div>
@@ -73,7 +74,7 @@ export function LandingPage() {
             </article>
             <article className={`${styles.featureCard} ${styles.promoFeature}`}>
               <div className={styles.featureTitle}><span>02 / SIAPKAN PROMOSI</span><Sparkles size={22} /></div><h3>Ide promosi, selalu punya arah.</h3><p>Jelajahi Galeri Prompt, sesuaikan dengan produk Anda, lalu gunakan di alat AI pilihan untuk menyiapkan visual promosi.</p>
-              <div className={styles.promptPreview}><div><span><Sparkles size={13} /> IDE VISUAL PRODUK</span><span>01—</span></div><h4>Menu andalanmu,<br /><em>layak jadi pusat perhatian.</em></h4><p>“Foto produk dengan cahaya alami, latar hangat, dan detail makanan yang menggugah selera…”</p><span className={styles.promptCaption}>Contoh arah prompt · bukan hasil gambar</span></div>
+              <LandingPromptComparison />
             </article>
             <article className={`${styles.featureCard} ${styles.targetFeature}`}>
               <div className={styles.featureTitle}><span>03 / TETAPKAN ARAH</span><Target size={22} /></div><h3>Target yang lebih membumi.</h3><p>Isi biaya tetap, penghasilan yang diinginkan, dan hari berjualan. Lihat kebutuhan hasil usaha per hari.</p>
