@@ -15,6 +15,8 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
   const adminEmail=`checkout-admin-${randomUUID()}@example.test`;
   const password="checkout-browser-password-123";
   const metaEnabled=process.env.META_TRACKING_ENABLED==="true";
+  const clickId="KulinerKit_Test_Click_123";
+  const expectedFbc=new RegExp(`^fb\\.1\\.\\d{13}\\.${clickId}$`);
   const observedMeta:{name:string;eventId:string}[]=[];
   const metaScriptRequests:{url:string;referer:string}[]=[];
   if(metaEnabled){
@@ -28,11 +30,13 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
     await query("UPDATE checkout_settings SET price=125000,compare_price=299000,enabled=true,bank_name='Bank Uji',account_number='123456789',account_holder='KulinerKit Uji' WHERE id=1");
     const admin=await auth.api.createUser({body:{email:adminEmail,password,name:"Admin checkout",role:"admin"}});
     await query("INSERT INTO user_profile(user_id,account_status,role) VALUES($1,'active','admin')",[admin.user.id]);
-    await page.goto("/");
+    await page.goto(metaEnabled?`/?fbclid=${clickId}`:"/");
     await expect(page.locator("del").filter({hasText:"Rp299.000"})).toBeVisible();
     await expect(page.getByText("Rp125.000",{exact:true}).first()).toBeVisible();
     if(metaEnabled){
       await expect.poll(()=>observedMeta.some(event=>event.name==="ViewContent")).toBe(true);
+      await expect.poll(async()=>page.evaluate(()=>document.cookie.includes("_fbc="))).toBe(true);
+      expect(decodeURIComponent((await page.context().cookies()).find(cookie=>cookie.name==="_fbc")!.value)).toMatch(expectedFbc);
       const browserId=await page.evaluate(()=>(window as any).fbq?.queue?.find((args:unknown[])=>args[2]==="ViewContent")?.[4]?.eventID);
       expect(browserId).toBe(observedMeta.find(event=>event.name==="ViewContent")?.eventId);
     }
@@ -43,6 +47,9 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
       const browserId=await page.evaluate(()=>(window as any).fbq?.queue?.find((args:unknown[])=>args[2]==="InitiateCheckout")?.[4]?.eventID);
       expect(browserId).toBe(observedMeta.find(event=>event.name==="InitiateCheckout")?.eventId);
       await expect.poll(async()=>Number((await query("SELECT count(*)::int n FROM meta_event_outbox WHERE event_id=ANY($1::text[])",[observedMeta.map(event=>event.eventId)])).rows[0].n)).toBe(2);
+      const pageEvents=await query("SELECT event_name,payload FROM meta_event_outbox WHERE event_id=ANY($1::text[])",[observedMeta.map(event=>event.eventId)]);
+      expect(pageEvents.rows.map(row=>row.event_name).sort()).toEqual(["InitiateCheckout","ViewContent"]);
+      for(const row of pageEvents.rows)expect(row.payload.user_data.fbc).toMatch(expectedFbc);
     }
     await page.getByLabel("Nama lengkap").fill("Pembeli Browser");
     await page.getByLabel("Email aktif").fill(email);
@@ -103,6 +110,7 @@ test("Direct checkout shows sale price, WhatsApp confirmation, and admin complet
       expect(meta.rows[0].event_name).toBe("Purchase");
       expect(meta.rows[0].status).toBe("pending");
       expect(meta.rows[0].payload.custom_data.value).toBe(125000);
+      expect(meta.rows[0].payload.user_data.fbc).toMatch(expectedFbc);
       expect(meta.rows[0].payload.event_source_url).toBe("http://127.0.0.1:3027/pay/verified");
       purchaseEventId=meta.rows[0].event_id;
       expect(observedMeta.map(event=>event.name)).not.toContain("Purchase");

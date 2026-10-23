@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 import { metaConfig } from "./meta-settings";
 import { postMetaEvent } from "./meta-transport";
+import { validFbc } from "@/lib/meta-click-id";
 export { metaConfig } from "./meta-settings";
 
 export const META_PRODUCT_ID = "kulinerkit_bundle";
@@ -28,7 +29,7 @@ export function captureMetaContext(request: Request): MetaContext {
     ...(ip ? { client_ip_address: ip } : {}),
     ...(agent ? { client_user_agent: agent } : {}),
     ...(fbp && /^fb\.1\.\d{10,16}\.[A-Za-z0-9._-]{1,200}$/.test(fbp) ? { fbp } : {}),
-    ...(fbc && /^fb\.1\.\d{10,16}\.[A-Za-z0-9._-]{1,200}$/.test(fbc) ? { fbc } : {}),
+    ...(validFbc(fbc) ? { fbc } : {}),
   };
 }
 
@@ -40,7 +41,7 @@ function customData(value: number, orderCode?: string) {
 }
 
 function sourceUrl(path: "/" | "/checkout" | "/pay/verified") { return new URL(path, process.env.APP_BASE_URL!).toString(); }
-function pageEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, context: MetaContext): MetaEvent {
+export function buildPageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, context: MetaContext): MetaEvent {
   return { event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: eventId,
     event_source_url: sourceUrl(name === "ViewContent" ? "/" : "/checkout"), action_source: "website",
     user_data: context, custom_data: customData(price) };
@@ -49,7 +50,7 @@ function pageEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, pr
 export async function enqueuePageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, request: Request) {
   const config = await metaConfig();
   if (!config.enabled) return;
-  const payload = pageEvent(name, eventId, price, captureMetaContext(request));
+  const payload = buildPageMetaEvent(name, eventId, price, captureMetaContext(request));
   await query("INSERT INTO meta_event_outbox(event_id,event_name,pixel_id,test_event_code,event_time,payload) VALUES($1,$2,$3,$4,to_timestamp($5),$6) ON CONFLICT(event_id) DO NOTHING",
     [eventId, name, config.pixelId, config.testEventCode, payload.event_time, JSON.stringify(payload)]);
 }

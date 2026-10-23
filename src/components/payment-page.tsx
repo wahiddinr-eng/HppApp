@@ -3,7 +3,7 @@ import { useCallback,useEffect,useRef,useState } from "react";
 import Link from "next/link";
 import { ArrowLeft,Check,Copy,MessageCircle,RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
-import { trackPurchasePixel } from "./meta-page-event";
+import { rememberClickId, trackPurchasePixel } from "./meta-page-event";
 import styles from "./checkout.module.css";
 import { CheckoutBrand } from "./checkout-brand";
 type Order={code:string;customer_name:string;customer_email:string;customer_phone:string|null;payment_method:"qris"|"bank";price:number;compare_price:number;status:"pending"|"failed"|"complete";payment_snapshot:{bankName?:string;accountNumber?:string;accountHolder?:string};created_at:string;metaPurchase:{eventId:string;pixelId:string}|null};
@@ -15,6 +15,7 @@ export function PaymentPage({token}:{token:string}){
   const load=useCallback(async(manual=false)=>{if(manual)setChecking(true);try{
     const latest=await api<Order>(`/api/checkout/orders/${token}`);
     if(latest.status==="complete"){
+      rememberClickId();
       // The token is a bearer secret: remove it before loading Meta's browser script.
       if(window.location.pathname!=="/pay/verified")window.history.replaceState(null,"","/pay/verified");
       const purchase=latest.metaPurchase;

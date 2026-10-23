@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { buildPurchaseMetaEvent, captureMetaContext } from "../src/server/meta";
+import { buildPageMetaEvent, buildPurchaseMetaEvent, captureMetaContext } from "../src/server/meta";
+import { fbcForClickId, fbcHasClickId, validFbc, validFbclid } from "../src/lib/meta-click-id";
 import { decryptMetaToken, encryptMetaToken, environmentMetaConfig } from "../src/server/meta-settings";
 
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -10,7 +11,7 @@ test("Meta Purchase uses the order snapshot and hashed matching data without pay
   process.env.APP_BASE_URL = "https://hpp.lrmobileid.com";
   const event = buildPurchaseMetaEvent({ id: "00000000-0000-4000-8000-000000000001", code: "KK-123ABC",
     price: 125000, customer_name: "Budi Santoso", customer_email: "  BUDI@EXAMPLE.COM ", customer_phone: "+6281234567890",
-    meta_context: { client_ip_address: "203.0.113.10", client_user_agent: "Test Browser", fbp: "fb.1.1234567890123.123456" } });
+    meta_context: { client_ip_address: "203.0.113.10", client_user_agent: "Test Browser", fbp: "fb.1.1234567890123.123456", fbc: "fb.1.1234567890123.AbCd_123" } });
   assert.equal(event.event_name, "Purchase");
   assert.equal(event.action_source, "website");
   assert.equal(event.event_id, "kulinerkit-purchase-00000000-0000-4000-8000-000000000001");
@@ -20,11 +21,42 @@ test("Meta Purchase uses the order snapshot and hashed matching data without pay
   assert.equal(event.user_data.fn, sha("budi"));
   assert.equal(event.user_data.ln, sha("santoso"));
   assert.equal(event.user_data.client_ip_address, "203.0.113.10");
+  assert.equal(event.user_data.fbc, "fb.1.1234567890123.AbCd_123");
+  assert.equal(event.custom_data.fbc, undefined);
   assert.deepEqual(event.custom_data.content_ids, ["kulinerkit_bundle"]);
   assert.equal(event.custom_data.value, 125000);
   assert.equal(event.custom_data.currency, "IDR");
   assert.equal(event.custom_data.order_id, "KK-123ABC");
   assert.doesNotMatch(JSON.stringify(event), /BUDI@EXAMPLE|6281234567890|\/pay\/[a-f0-9]{64}/);
+});
+
+test("Meta Click ID is carried in CAPI user_data for ViewContent and InitiateCheckout", () => {
+  process.env.APP_BASE_URL = "https://hpp.lrmobileid.com";
+  const fbc = fbcForClickId("AbCd_123", 1234567890123);
+  assert.equal(fbc, "fb.1.1234567890123.AbCd_123");
+  const context = { fbc: fbc!, fbp: "fb.1.1234567890123.123456" };
+  for (const [name, path] of [["ViewContent", "/"], ["InitiateCheckout", "/checkout"]] as const) {
+    const event = buildPageMetaEvent(name, `event-${name}`, 125000, context);
+    assert.equal(event.event_name, name);
+    assert.equal(event.event_id, `event-${name}`);
+    assert.equal(event.event_source_url, `https://hpp.lrmobileid.com${path}`);
+    assert.equal(event.user_data.fbc, fbc);
+    assert.equal(event.user_data.fbp, context.fbp);
+    assert.equal(event.custom_data.fbc, undefined);
+  }
+});
+
+test("Meta Click ID validation rejects absent and malformed IDs", () => {
+  assert.equal(validFbclid("AbCd_123.-"), true);
+  assert.equal(validFbclid(""), false);
+  assert.equal(validFbclid("bad value"), false);
+  assert.equal(fbcForClickId(null), undefined);
+  assert.equal(fbcForClickId("bad value"), undefined);
+  assert.equal(fbcForClickId("AbCd_123", 1), undefined);
+  assert.equal(fbcHasClickId("fb.1.1234567890123.AbCd_123", "AbCd_123"), true);
+  assert.equal(fbcHasClickId("fb.1.1234567890123.Other", "AbCd_123"), false);
+  assert.equal(validFbc("fb.1.1234567890123.AbCd_123"), true);
+  assert.equal(validFbc("fb.1.bad.AbCd_123"), false);
 });
 
 test("Meta context accepts only bounded Meta cookies and valid IPs", () => {

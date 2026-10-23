@@ -1,17 +1,36 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { fbcForClickId, fbcHasClickId, validFbclid } from "@/lib/meta-click-id";
 
 type EventName = "ViewContent" | "InitiateCheckout";
 type Fbq = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue?: unknown[][]; loaded?: boolean; version?: string };
 type PixelWindow = Window & { fbq?: Fbq };
 const productId = "kulinerkit_bundle";
 const initialized = new Set<string>();
+const pendingClickIdKey = "kulinerkit:meta:pending-fbclid";
+
+export function rememberClickId() {
+  const clickId = new URLSearchParams(window.location.search).get("fbclid");
+  if (!validFbclid(clickId)) return;
+  try { sessionStorage.setItem(pendingClickIdKey, clickId); } catch { /* Storage may be unavailable. */ }
+}
 
 function persistClickId() {
-  const clickId = new URLSearchParams(window.location.search).get("fbclid");
-  if (!clickId || !/^[A-Za-z0-9._-]{1,200}$/.test(clickId)) return;
-  const value = `fb.1.${Date.now()}.${clickId}`;
+  const current = new URLSearchParams(window.location.search).get("fbclid");
+  let pending: string | null = null;
+  try { pending = sessionStorage.getItem(pendingClickIdKey); } catch { /* Storage may be unavailable. */ }
+  const clickId = validFbclid(current) ? current : pending;
+  const value = fbcForClickId(clickId);
+  if (!value || !validFbclid(clickId)) return;
+  const existing = document.cookie.split(";").map(part => part.trim()).find(part => part.startsWith("_fbc="));
+  let existingValue: string | undefined;
+  try { existingValue = existing ? decodeURIComponent(existing.slice(5)) : undefined; } catch { /* Ignore a malformed cookie. */ }
+  if (fbcHasClickId(existingValue, clickId)) {
+    try { sessionStorage.removeItem(pendingClickIdKey); } catch { /* Storage may be unavailable. */ }
+    return;
+  }
   document.cookie = `_fbc=${encodeURIComponent(value)}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+  try { sessionStorage.removeItem(pendingClickIdKey); } catch { /* Storage may be unavailable. */ }
 }
 
 function initPixel(pixelId: string) {
@@ -33,10 +52,15 @@ export function MetaPageEvent({ name, price }: { name: EventName; price: number 
   useEffect(() => {
     if (tracked.current || !Number.isFinite(price) || price <= 0) return;
     tracked.current = true;
+    // Keep the ad click through an immediate SPA navigation while config loads.
+    rememberClickId();
     void fetch("/api/meta/events", { cache: "no-store" })
       .then(response => response.ok ? response.json() as Promise<{ enabled: boolean; pixelId: string | null }> : null)
       .then(config => {
-        if (!config?.enabled || !config.pixelId) return;
+        if (!config?.enabled || !config.pixelId) {
+          try { sessionStorage.removeItem(pendingClickIdKey); } catch { /* Storage may be unavailable. */ }
+          return;
+        }
         persistClickId();
         const eventId = crypto.randomUUID();
         const data = { currency: "IDR", value: price, content_name: "KulinerKit", content_category: "Toolkit usaha kuliner",
@@ -61,6 +85,7 @@ export function MetaPageEvent({ name, price }: { name: EventName; price: number 
 export function trackPurchasePixel(pixelId: string, eventId: string, price: number, orderCode: string) {
   // Never initialize Meta while the bearer payment token remains in the URL.
   if (window.location.pathname !== "/pay/verified") return false;
+  persistClickId();
   initPixel(pixelId)("trackSingle", pixelId, "Purchase", {
     currency: "IDR", value: price, content_name: "KulinerKit", content_category: "Toolkit usaha kuliner",
     content_type: "product", content_ids: [productId], contents: [{ id: productId, quantity: 1, item_price: price }],
