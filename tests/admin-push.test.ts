@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import webpush from "web-push";
 import manifest from "../src/app/manifest";
-import { adminPushConfig, adminPushSubscriptionSchema, orderPushPayload } from "../src/server/admin-push";
+import { adminPushConfig, adminPushSubscriptionSchema, orderPushPayload, pushAgentForEndpoint } from "../src/server/admin-push";
 
 test("iPhone install manifest has stable identity and branded icons", async () => {
   const value = manifest();
@@ -29,6 +29,13 @@ test("admin push accepts only a bounded public HTTPS subscription", () => {
   assert.equal(adminPushSubscriptionSchema.safeParse({ ...input, endpoint: "https://127.0.0.1/test" }).success, false);
   assert.equal(adminPushSubscriptionSchema.safeParse({ ...input, endpoint: "https://localhost/test" }).success, false);
   assert.equal(adminPushSubscriptionSchema.safeParse({ ...input, keys: { ...input.keys, auth: "bad" } }).success, false);
+});
+
+test("Apple push uses IPv4 without Node automatic family racing", () => {
+  const agent = pushAgentForEndpoint("https://web.push.apple.com/example");
+  assert.equal(agent?.options.family, 4);
+  assert.equal(agent?.options.autoSelectFamily, false);
+  assert.equal(pushAgentForEndpoint("https://fcm.googleapis.com/example"), undefined);
 });
 
 test("push is disabled without a complete VAPID pair and payload contains no buyer details", () => {

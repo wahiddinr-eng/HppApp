@@ -1,9 +1,18 @@
 import { createECDH } from "node:crypto";
+import { Agent as HttpsAgent } from "node:https";
 import { isIP } from "node:net";
 import type { PoolClient } from "pg";
 import webpush from "web-push";
 import { z } from "zod";
 import { query, transaction } from "./db";
+
+// The VPS needs more time to connect to Apple's IPv4 edge than Node's
+// automatic IPv4/IPv6 attempt window allows. Leave other push hosts unchanged.
+const applePushAgent = new HttpsAgent({ family: 4, autoSelectFamily: false });
+
+export function pushAgentForEndpoint(endpoint: string) {
+  return new URL(endpoint).hostname === "web.push.apple.com" ? applePushAgent : undefined;
+}
 
 const endpointSchema = z.string().max(2048).refine((value) => {
   try {
@@ -75,7 +84,7 @@ export async function processOneAdminPush(): Promise<boolean> {
     try {
       await webpush.sendNotification({endpoint:job.endpoint,keys:{p256dh:job.p256dh,auth:job.auth_secret}},
         orderPushPayload(job.code),{vapidDetails:{subject:config.subject,publicKey:config.publicKey,privateKey:config.privateKey},
-          TTL:3600,urgency:"high",timeout:10000});
+          TTL:3600,urgency:"high",timeout:10000,agent:pushAgentForEndpoint(job.endpoint),topic:job.code});
       await client.query("UPDATE admin_push_job SET status='sent',sent_at=now(),attempts=attempts+1,last_error=NULL WHERE id=$1",[job.id]);
     } catch (error) {
       const status = typeof error === "object" && error !== null && "statusCode" in error ? Number(error.statusCode) : 0;
