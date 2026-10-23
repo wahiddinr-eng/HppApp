@@ -22,7 +22,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isAnalysis = path.startsWith("/app/sales/analysis");
   const logout = async () => { try { await api("/api/auth/sign-out", { method: "POST", body: "{}" }); window.location.assign("/login"); }
     catch (error) { setNotice(error instanceof Error ? error.message : "Gagal keluar."); } };
-  const brand = <><span className="brand-mark">k<span>.</span></span><span className="brand-text">Kuliner <small>KIT</small></span></>;
+  const brand = <><span className="brand-mark">k<span>.</span></span><span className="brand-text">KulinerKit <small>by LRMobileID</small></span></>;
 
   return <div className="app-shell">
     <aside className="sidebar">

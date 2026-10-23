@@ -5,6 +5,7 @@ import { ArrowLeft,Check,Copy,MessageCircle,RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { trackPurchasePixel } from "./meta-page-event";
 import styles from "./checkout.module.css";
+import { CheckoutBrand } from "./checkout-brand";
 type Order={code:string;customer_name:string;customer_email:string;customer_phone:string|null;payment_method:"qris"|"bank";price:number;compare_price:number;status:"pending"|"failed"|"complete";payment_snapshot:{bankName?:string;accountNumber?:string;accountHolder?:string};created_at:string;metaPurchase:{eventId:string;pixelId:string}|null};
 const money=(n:number)=>"Rp"+n.toLocaleString("id-ID");
 export function PaymentPage({token}:{token:string}){
@@ -34,7 +35,7 @@ export function PaymentPage({token}:{token:string}){
   const message=order?`Halo tim KulinerKit, saya ingin konfirmasi pembayaran pesanan ${order.code}.\nNama: ${order.customer_name}\nEmail: ${order.customer_email}${order.customer_phone?`\nNomor WhatsApp: ${order.customer_phone}`:""}\nMetode: ${order.payment_method==="qris"?"QRIS":"Transfer bank"}\nNominal: ${money(order.price)}\nSaya akan mengirim bukti pembayaran melalui chat ini. Mohon bantu verifikasi, terima kasih.`:"";
   const whatsapp=`https://wa.me/6285161218257?text=${encodeURIComponent(message)}`;
   async function copy(value:string){await navigator.clipboard.writeText(value);setCopied(true);window.setTimeout(()=>setCopied(false),2500);}
-  return <div className={styles.page}><header className={styles.header}><Link href="/" className={styles.brand}><span>K</span>KulinerKit</Link><Link href="/" className={styles.back}><ArrowLeft size={16}/> Beranda</Link></header><main className={styles.paymentMain}>
+  return <div className={styles.page}><header className={styles.header}><CheckoutBrand/><Link href="/" className={styles.back}><ArrowLeft size={16}/> Beranda</Link></header><main className={styles.paymentMain}>
     <div className={styles.intro}><span className={styles.eyebrow}>PEMBAYARAN KULINERKIT</span><h1>{order?.status==="complete"?"Pembayaran terverifikasi.":order?.status==="failed"?"Pesanan perlu bantuan.":"Selesaikan pembayaran."}</h1><p>Kode pesanan <strong>{order?.code||"—"}</strong> · Simpan email pembayaran untuk membuka kembali tautan pesanan.</p></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {order&&<div className={styles.grid}><section className={styles.card}><div className={styles.status} data-status={order.status}>{order.status==="complete"?"Pembayaran terverifikasi":order.status==="failed"?"Pesanan gagal / dibatalkan":"Menunggu verifikasi pembayaran"}</div><div className={styles.total}><span>Total pembayaran</span><strong>{money(order.price)}</strong></div>

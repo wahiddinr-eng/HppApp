@@ -34,3 +34,9 @@
   .demoNote{font-size:10px}
 }
 @media(max-width:380px){.page .previewHeading h2{font-size:14px}}
+
+/* Brand endorsement stays attached to the logo across the sales journey. */
+.brandName{display:block;line-height:1.05}
+.brandName small{display:block;margin-top:5px;color:#678372;font-family:Manrope,sans-serif;font-size:10px;font-weight:700;letter-spacing:.02em;line-height:1.15}
+.accessCardHeading small{display:block;margin-top:3px;color:#678372;font-size:10px;font-weight:700;letter-spacing:.02em;line-height:1.2}
+.accessCardHeading p{margin-top:8px}

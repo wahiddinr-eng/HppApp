@@ -5,6 +5,7 @@ import { ArrowLeft,ArrowRight,CheckCircle2,LockKeyhole,ShieldCheck } from "lucid
 import { api } from "@/lib/api";
 import styles from "./checkout.module.css";
 import { MetaPageEvent } from "./meta-page-event";
+import { CheckoutBrand } from "./checkout-brand";
 type Settings={price:number;comparePrice:number;enabled:boolean;methods:{qris:boolean;bank:boolean}};
 const money=(n:number)=>"Rp"+n.toLocaleString("id-ID");
 export function CheckoutPage(){
@@ -16,7 +17,7 @@ export function CheckoutPage(){
     window.location.assign(result.url);
   }catch(cause){setError(cause instanceof Error?cause.message:"Pesanan gagal dibuat.");setSubmitting(false);}}
   const available=settings?.enabled&&(settings.methods.qris||settings.methods.bank);
-  return <div className={styles.page}>{available&&settings&&<MetaPageEvent name="InitiateCheckout" price={settings.price}/>}<header className={styles.header}><Link href="/" className={styles.brand}><span>K</span>KulinerKit</Link><Link href="/" className={styles.back}><ArrowLeft size={16}/> Kembali ke beranda</Link></header>
+  return <div className={styles.page}>{available&&settings&&<MetaPageEvent name="InitiateCheckout" price={settings.price}/>}<header className={styles.header}><CheckoutBrand/><Link href="/" className={styles.back}><ArrowLeft size={16}/> Kembali ke beranda</Link></header>
     <main className={styles.main}><div className={styles.intro}><span className={styles.eyebrow}>LANGKAH PERTAMA USAHA LEBIH TERARAH</span><h1>Mulai bersama <em>KulinerKit.</em></h1><p>Satu toolkit untuk menyiapkan harga, promosi, target, dan evaluasi usaha kuliner Anda.</p></div>
       <div className={styles.grid}><section className={styles.card}><div className={styles.sectionHead}><span>01</span><div><h2>Data pembelian</h2><p>Instruksi pembayaran dan akses dikirim ke email ini.</p></div></div>
         {error&&<p className={styles.error} role="alert">{error}</p>}

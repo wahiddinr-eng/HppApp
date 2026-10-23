@@ -36,9 +36,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return <div className={styles.shell}>
     <aside className={styles.sidebar}>
-      <Link href="/admin" className={styles.brand} aria-label="KulinerKit Admin - dashboard">
+      <Link href="/admin" className={styles.brand} aria-label="KulinerKit by LRMobileID Admin - dashboard">
         <span className={styles.brandMark}>K</span>
-        <span><strong>KulinerKit</strong><small>ADMIN WORKSPACE</small></span>
+        <span><strong>KulinerKit</strong><small className={styles.brandByline}>by LRMobileID</small><small>ADMIN WORKSPACE</small></span>
       </Link>
       <div className={styles.menuLabel}>MENU ADMIN</div>
       <nav className={styles.nav} aria-label="Navigasi admin">

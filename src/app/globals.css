@@ -55,3 +55,11 @@ button.side-help { border:0; background:transparent; cursor:pointer; font:inheri
 .sidebar-support b,.sidebar-support small{display:block}
 .sidebar-support b{font-size:11px}
 .sidebar-support small{margin-top:2px;color:#648773;font-size:9px}
+
+/* One compact KulinerKit / LRMobileID lockup throughout the account area. */
+.brand-text{letter-spacing:-.04em}
+.brand-text small{font-size:10px;letter-spacing:.02em;font-weight:700;color:#688978}
+.auth-brand-name{display:flex;flex-direction:column;line-height:1.1}
+.auth-brand .auth-brand-name small{margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.02em;color:#b5dcc1}
+.auth-mobile-brand .auth-brand-name small{margin-top:4px;font-size:9px;font-weight:700;letter-spacing:.02em;color:#638a73}
+@media(max-width:700px){.mobile-header .brand-text small{font-size:8px;letter-spacing:.02em}}
