@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ChartNoAxesCombined, CreditCard, Images, LayoutDashboard, LogOut, MailCheck, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
+import { revokeAdminPushForCurrentDevice } from "./admin-push-controls";
 import styles from "./admin-shell.module.css";
 
 const links = [
@@ -27,6 +28,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, []);
   async function logout() {
     try {
+      await revokeAdminPushForCurrentDevice().catch(() => undefined);
       await api("/api/auth/sign-out", { method: "POST", body: "{}" });
       window.location.assign("/login");
     } catch (error) {

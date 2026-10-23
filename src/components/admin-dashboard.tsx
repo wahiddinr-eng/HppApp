@@ -5,11 +5,12 @@ import Link from "next/link";
 import { ArrowRight, BookImage, CheckCircle2, CircleAlert, Clock3, MailWarning, RefreshCw, ShoppingBag, UsersRound, Webhook } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageTop } from "./shell";
+import { AdminPushControls } from "./admin-push-controls";
 import styles from "./admin-dashboard.module.css";
 
 type Dashboard = {
   metrics: { total_users:number; active_users:number; pending_users:number; users_with_access:number;
-    linked_purchases:number; active_prompt_cards:number; failed_webhooks:number; failed_emails:number;failed_meta_events:number };
+    linked_purchases:number; active_prompt_cards:number; failed_webhooks:number; failed_emails:number;failed_meta_events:number;failed_push_jobs:number };
   recentAccounts: { email:string; name:string; account_status:string; created_at:string }[];
   recentEvents: { event_id:string; source:string; purchase_id:string; status:string; stage:string; created_at:string }[];
   worker: { name:string; last_seen:string }[];
@@ -34,15 +35,15 @@ export function AdminDashboard(){
   },[]);
   useEffect(()=>{void load();},[load]);
   const metrics=data?.metrics;
-  const failures=(metrics?.failed_webhooks??0)+(metrics?.failed_emails??0)+(metrics?.failed_meta_events??0);
-  const attentionHref=(metrics?.failed_meta_events??0)>0&&(metrics?.failed_webhooks??0)+(metrics?.failed_emails??0)===0?"/admin/meta":"/admin/integrations";
+  const failures=(metrics?.failed_webhooks??0)+(metrics?.failed_emails??0)+(metrics?.failed_meta_events??0)+(metrics?.failed_push_jobs??0);
+  const attentionHref=(metrics?.failed_push_jobs??0)>0&&(metrics?.failed_webhooks??0)+(metrics?.failed_emails??0)+(metrics?.failed_meta_events??0)===0?"/admin#admin-push-title":(metrics?.failed_meta_events??0)>0&&(metrics?.failed_webhooks??0)+(metrics?.failed_emails??0)===0?"/admin/meta":"/admin/integrations";
   const cards=[
     {label:"Total pengguna",value:metrics?.total_users,detail:"Akun customer terdaftar",href:"/admin/access",icon:UsersRound},
     {label:"Pengguna berakses",value:metrics?.users_with_access,detail:"Akun aktif dengan hak fitur",href:"/admin/access",icon:CheckCircle2},
     {label:"Menunggu aktivasi",value:metrics?.pending_users,detail:"Perlu menyelesaikan email aktivasi",href:"/admin/access",icon:Clock3},
     {label:"Pembelian LRMobileID",value:metrics?.linked_purchases,detail:"Transaksi webhook unik, bukan jumlah fitur",href:"/admin/integrations",icon:ShoppingBag},
     {label:"Kartu prompt aktif",value:metrics?.active_prompt_cards,detail:"Tampil di galeri customer",href:"/admin/prompts",icon:BookImage},
-    {label:"Job perlu perhatian",value:metrics?failures:undefined,detail:"Webhook, email, dan Meta CAPI gagal",href:attentionHref,icon:CircleAlert},
+    {label:"Job perlu perhatian",value:metrics?failures:undefined,detail:"Webhook, email, Meta, dan push gagal",href:attentionHref,icon:CircleAlert},
   ];
   const latestWorker=data?.worker.reduce<string|undefined>((latest,row)=>!latest||row.last_seen>latest?row.last_seen:latest,undefined);
   const maxSales=Math.max(1,...(data?.trend.map(row=>Number(row.revenue))||[]));
@@ -51,6 +52,7 @@ export function AdminDashboard(){
     <PageTop eyebrow="RINGKASAN ADMIN" title="Dashboard KulinerKit" description="Pantau pengguna, akses, konten, dan proses otomatis dari satu tempat."
       actions={<button className="button secondary" onClick={()=>void load()} disabled={loading}><RefreshCw size={16}/>{loading?"Memuat...":"Perbarui data"}</button>}/>
     {error&&<div className="form-message error" role="alert">{error} <button className="button secondary" onClick={()=>void load()}>Coba lagi</button></div>}
+    <AdminPushControls />
     <section className={styles.hero} aria-label="Status operasional">
       <div><span>RINGKASAN OPERASIONAL</span><h2>{!metrics?"Memuat status operasional...":failures?`${failures} job perlu ditangani`:"Semua job tanpa kegagalan"}</h2><p>Angka pembelian dihitung per transaksi. Satu pembelian bundle dapat menghasilkan dua hak fitur tanpa menjadi dua transaksi.</p></div>
       <Link href={failures?attentionHref:"/admin/access"}>{failures?"Periksa integrasi":"Lihat pengguna"}<ArrowRight size={17}/></Link>
@@ -79,7 +81,7 @@ export function AdminDashboard(){
             <span className={`${styles.pill} ${event.status==="processed"?styles.good:event.status==="failed"?styles.bad:styles.wait}`}>{eventLabel(event.status,event.stage)}</span>
           </div>):<div className={styles.empty}>{loading?"Memuat aktivitas...":"Belum ada webhook masuk."}</div>}
         </section>
-        <section className={styles.health}><span className={styles.healthIcon}><MailWarning size={19}/></span><div><strong>Email gagal: {metrics?.failed_emails??"—"} · Webhook gagal: {metrics?.failed_webhooks??"—"} · <Link href="/admin/meta">Meta gagal: {metrics?.failed_meta_events??"—"}</Link></strong><small>{latestWorker?`Heartbeat worker terakhir ${date(latestWorker)} WITA`:"Heartbeat worker belum tersedia"}</small></div></section>
+        <section className={styles.health}><span className={styles.healthIcon}><MailWarning size={19}/></span><div><strong>Email gagal: {metrics?.failed_emails??"—"} · Webhook gagal: {metrics?.failed_webhooks??"—"} · <Link href="/admin/meta">Meta gagal: {metrics?.failed_meta_events??"—"}</Link> · Push gagal: {metrics?.failed_push_jobs??"—"}</strong><small>{latestWorker?`Heartbeat worker terakhir ${date(latestWorker)} WITA`:"Heartbeat worker belum tersedia"}</small></div></section>
       </div>
     </div>
     {data&&<p className={styles.updated}>Diperbarui {date(data.updatedAt)} WITA · Akun aktif: {metrics?.active_users??0}</p>}

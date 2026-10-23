@@ -6,6 +6,7 @@ import { query, transaction } from "./db";
 import { enqueueEmail, tokenHash } from "./email";
 import { DomainError } from "./http";
 import { cancelUnsentPurchaseMetaEvent, enqueuePurchaseMetaEvent } from "./meta";
+import { enqueueOrderPush } from "./admin-push";
 import type { captureMetaContext } from "./meta";
 
 export const checkoutSettingsSchema = z.object({
@@ -60,6 +61,7 @@ export async function createCheckoutOrder(input:z.infer<typeof orderSchema>,meta
     await client.query("INSERT INTO email_outbox(kind,recipient,dedup_key,payload) VALUES('checkout_payment',$1,$2,$3)",[input.email,`checkout:${result.rows[0].id}:customer`,JSON.stringify(payload)]);
     const admins=await client.query<{email:string}>('SELECT u.email FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 AND p.account_status=$2',["admin","active"]);
     for(const admin of admins.rows) await client.query("INSERT INTO email_outbox(kind,recipient,dedup_key,payload) VALUES('checkout_admin',$1,$2,$3)",[admin.email,`checkout:${result.rows[0].id}:admin:${admin.email}`,JSON.stringify({...payload,url:new URL('/admin/transactions',baseUrl()).toString(),email:input.email})]);
+    await enqueueOrderPush(client,result.rows[0].id);
     await client.query("INSERT INTO audit_log(action,target,reason) VALUES('checkout_created',$1,$2)",[result.rows[0].id,input.method]);
     return {code,url};
   });

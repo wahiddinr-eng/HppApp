@@ -74,6 +74,29 @@ ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS customer_phone text;
 ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS meta_context jsonb NOT NULL DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS checkout_order_created ON checkout_order(created_at DESC);
 CREATE INDEX IF NOT EXISTS checkout_order_email ON checkout_order(customer_email);
+CREATE TABLE IF NOT EXISTS admin_push_subscription (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  endpoint text NOT NULL UNIQUE,
+  p256dh text NOT NULL,
+  auth_secret text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_push_subscription_user ON admin_push_subscription(user_id);
+CREATE TABLE IF NOT EXISTS admin_push_job (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES checkout_order(id) ON DELETE CASCADE,
+  subscription_id uuid NOT NULL REFERENCES admin_push_subscription(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','failed','sent','expired')),
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt timestamptz NOT NULL DEFAULT now(),
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  sent_at timestamptz,
+  UNIQUE(order_id,subscription_id)
+);
+CREATE INDEX IF NOT EXISTS admin_push_job_pending ON admin_push_job(next_attempt,created_at) WHERE status IN ('pending','failed');
 CREATE TABLE IF NOT EXISTS meta_event_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_id text NOT NULL UNIQUE,
   event_name text NOT NULL CHECK(event_name IN ('ViewContent','InitiateCheckout','Purchase')),

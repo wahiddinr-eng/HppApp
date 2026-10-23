@@ -12,7 +12,7 @@ const faqs = [
   { question: "Apakah KulinerKit juga berfungsi sebagai kasir?", answer: "KulinerKit membantu perencanaan dan evaluasi usaha. Penjualan dicatat sebagai rekap per hari dan kanal, bukan transaksi kasir satu per satu. Anda dapat tetap menggunakan cara menerima pesanan yang sudah nyaman." },
   { question: "Kalau harga bahan naik, apakah harus menghitung dari awal?", answer: "Bahan dari katalog bisa ditautkan ke beberapa resep. Saat harganya berubah, Anda dapat melihat dampaknya pada HPP dan memperbarui resep yang tertaut setelah konfirmasi. Riwayat perhitungan serta HPP pada rekap penjualan lama tetap tersimpan." },
   { question: "Apakah Galeri Prompt langsung menghasilkan gambar?", answer: "Galeri berisi referensi dan prompt promosi yang bisa disalin serta disesuaikan dengan produk Anda. Prompt kemudian digunakan di alat AI pilihan Anda. KulinerKit tidak membuat gambar secara langsung; ketersediaan dan biaya alat AI mengikuti layanan yang Anda gunakan." },
-  { question: "Bisa dibuka dari HP? Perlu instal aplikasi?", answer: "Bisa dibuka melalui browser di HP maupun laptop dengan koneksi internet. Anda tidak perlu memasang aplikasi tambahan. Panduan penggunaan tersedia di dalam akun agar Anda bisa mulai dari fitur yang dibutuhkan." },
+  { question: "Bisa dipasang di iPhone?", answer: "Bisa. Buka hpp.lrmobileid.com di Safari, ketuk Bagikan, lalu pilih Tambahkan ke Layar Utama. KulinerKit juga tetap bisa dipakai lewat browser tanpa instalasi. Koneksi internet tetap diperlukan untuk data akun dan perhitungan." },
   { question: "Bagaimana cara mendapatkan akses?", answer: "Buat pesanan melalui tombol Beli akses KulinerKit, lalu ikuti instruksi pembayaran QRIS atau transfer bank. Setelah pembayaran diverifikasi admin, tautan aktivasi akun dikirim ke email pembelian Anda." },
 ];
 
@@ -48,7 +48,7 @@ export function LandingPage() {
           <h1 id="hero-title">Hitung dulu<br />biaya menunya.<br />Lalu siapkan<br /><em>promosinya.</em></h1>
           <p>Ketahui biaya produksi dan tentukan harga jual dengan kalkulator HPP. Setelah itu, pilih prompt siap pakai untuk mengubah foto makanan menjadi visual promosi di alat AI pilihan Anda. Semua dimulai dari KulinerKit.</p>
           <div className={styles.heroActions}><a href="#mulai" className={styles.primaryButton}>Mulai lebih terarah <ArrowUpRight size={19} /></a><a href="#simulasi" className={styles.textButton}>Coba hitungan sederhana <ArrowDown size={16} /></a></div>
-          <div className={styles.heroChecks}><span><Check size={14} /> Buka di HP & laptop</span><span><Check size={14} /> Tanpa instalasi</span></div>
+          <div className={styles.heroChecks}><span><Check size={14} /> Buka di HP & laptop</span><span><Check size={14} /> Bisa dipasang di layar utama iPhone</span></div>
         </div>
         <WorkspacePreview />
       </section>

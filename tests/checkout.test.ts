@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import webpush from "web-push";
 
 const url=process.env.HPP_TEST_DATABASE_URL;
 test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:!url},async()=>{
@@ -16,12 +17,13 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
   delete process.env.SMTP_HOST;
   const {auth}=await import("../src/server/auth");
   const {getMigrations}=await import("better-auth/db/migration");
-  const {query,getPool}=await import("../src/server/db");
+  const {query,getPool,transaction}=await import("../src/server/db");
   const {createCheckoutOrder,findCheckoutOrder,setCheckoutOrderStatus,getCheckoutSettings,orderSchema}=await import("../src/server/checkout");
   const {buildCheckoutEmail}=await import("../src/server/checkout-email");
   const {processOneMetaEvent,enqueuePageMetaEvent,purchaseBrowserEvent}=await import("../src/server/meta");
   const paymentRoute=await import("../src/app/api/checkout/orders/[token]/route");
   const {saveMetaSettings,adminMetaSettings,metaConfig}=await import("../src/server/meta-settings");
+  const {saveAdminPushSubscription,enqueueOrderPush}=await import("../src/server/admin-push");
   const suffix=randomUUID();
   const email=`checkout-${suffix}@example.test`;
   try{
@@ -37,6 +39,11 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     await query("UPDATE checkout_settings SET bank_name='Bank Uji',account_number='123456789',account_holder='KulinerKit',enabled=true WHERE id=1");
     const admin=await auth.api.createUser({body:{email:`checkout-admin-${suffix}@example.test`,password:"checkout-admin-password-123",name:"Admin uji",role:"admin"}});
     await query("INSERT INTO user_profile(user_id,account_status,role) VALUES($1,'active','admin')",[admin.user.id]);
+    const vapid=webpush.generateVAPIDKeys();
+    process.env.PUSH_VAPID_PUBLIC_KEY=vapid.publicKey;
+    process.env.PUSH_VAPID_PRIVATE_KEY=vapid.privateKey;
+    process.env.PUSH_VAPID_SUBJECT="mailto:admin@example.com";
+    await saveAdminPushSubscription(admin.user.id,{endpoint:`https://web.push.apple.com/test-${suffix}`,keys:{p256dh:vapid.publicKey,auth:randomBytes(16).toString("base64url")}});
     assert.equal((await adminMetaSettings()).source,"environment");
     await saveMetaSettings({version:0,enabled:true,pixelId:"123456789012345",graphApiVersion:"v26.0",testEventCode:"TEST-KK",capiToken:"admin-saved-test-token"},admin.user.id);
     const adminSettings=await adminMetaSettings();
@@ -58,6 +65,9 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     assert.equal(order.status,"pending");
     const idResult=await query("SELECT id,token_hash,version FROM checkout_order WHERE code=$1",[result.code]);
     const id=idResult.rows[0].id as string;
+    assert.equal((await query("SELECT count(*)::int n FROM admin_push_job WHERE order_id=$1",[id])).rows[0].n,1);
+    await transaction(async client=>enqueueOrderPush(client,id));
+    assert.equal((await query("SELECT count(*)::int n FROM admin_push_job WHERE order_id=$1",[id])).rows[0].n,1);
     assert.notEqual(idResult.rows[0].token_hash,token);
     assert.equal(await purchaseBrowserEvent(id),null);
     const pendingBody=await (await paymentRoute.GET(new Request(result.url),{params:Promise.resolve({token})})).json();

@@ -71,6 +71,7 @@ export function Guide() {
           <div className={styles.ebookActions}><Link href="/app/guide/ebook" className="button primary"><BookOpenText size={16} /> Baca ebook</Link><a href="/panduan-kulinerkit.pdf?v=2" download="Panduan-KulinerKit.pdf" className="button secondary"><Download size={16} /> Unduh PDF</a></div>
         </div>
       </section>
+      <div className={styles.accessNote}><CircleCheck size={20} /><div><strong>Pasang KulinerKit di iPhone</strong><p>Buka situs ini di Safari, ketuk tombol Bagikan, lalu pilih Tambahkan ke Layar Utama. Buka ikon KulinerKit yang muncul dan masuk dengan akun Anda. Aplikasi tetap memerlukan internet; data usaha tidak disimpan offline di perangkat.</p></div></div>
       {error && <div className="form-message error" role="alert">{error}</div>}
       {!profile && !error && <div className={styles.loading} role="status">Memuat panduan akun...</div>}
       {profile && <>
