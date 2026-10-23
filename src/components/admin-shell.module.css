@@ -6,6 +6,8 @@
 .brand strong { font-size: 17px; line-height: 1.2; letter-spacing: -.04em; }
 .brand small { margin-top: 4px; font-size: 9px; letter-spacing: .2em; color: #a9d6ba; font-weight: 800; }
 .brand .brandByline { color: #d2eada; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
+.brand .brandMark { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding-right: 7px; background: #1d5542; border: 1px solid #c8dca663; color: #fbf9ed; font-family: Manrope, Arial, sans-serif; font-size: 31px; letter-spacing: -7px; line-height: 1; }
+.brandMark span { color: #c8dca6; }
 .menuLabel { padding: 0 13px; margin-bottom: 11px; color: #90b6a4; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
 .nav { display: grid; gap: 5px; overflow-y: auto; min-height: 0; align-content: start; scrollbar-width: thin; }
 .navLink { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; border: 1px solid transparent; border-radius: 11px; color: #c6ddd0; }

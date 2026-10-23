@@ -6,3 +6,5 @@
 
 .brand .brandName{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:auto;height:auto;background:none;border-radius:0;color:inherit;font-size:20px;line-height:1.05;letter-spacing:-.04em}
 .brandName small{display:block;margin-top:4px;color:#678371;font-size:10px;font-weight:700;letter-spacing:.04em;line-height:1.2}
+.brand .brandMark{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:37px;height:37px;padding-right:6px;border-radius:11px;background:#1d5542;color:#fbf9ed;font-family:Manrope,Arial,sans-serif;font-size:27px;font-weight:800;letter-spacing:-6px;line-height:1}
+.brand .brandMark span{display:inline;width:auto;height:auto;border-radius:0;background:none;color:#c8dca6;font:inherit;letter-spacing:inherit}

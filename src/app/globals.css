@@ -63,3 +63,10 @@ button.side-help { border:0; background:transparent; cursor:pointer; font:inheri
 .auth-brand .auth-brand-name small{margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.02em;color:#b5dcc1}
 .auth-mobile-brand .auth-brand-name small{margin-top:4px;font-size:9px;font-weight:700;letter-spacing:.02em;color:#638a73}
 @media(max-width:700px){.mobile-header .brand-text small{font-size:8px;letter-spacing:.02em}}
+
+/* Match the original two-k mark on the landing page. */
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;padding-right:6px;border-radius:11px;background:#1d5542;color:#fbf9ed;font-family:Manrope,Arial,sans-serif;font-size:27px;font-weight:800;letter-spacing:-6px;flex:none}
+.brand-mark span{color:#c8dca6}
+.auth-brand .brand-mark{background:#1d5542;color:#fbf9ed;border:1px solid #c8dca663}
+.auth-brand .brand-mark span{color:#c8dca6}
+@media(max-width:700px){.mobile-header .brand-mark,.auth-mobile-brand .brand-mark{padding-right:5px;border-radius:9px;font-size:23px;letter-spacing:-5px}}
