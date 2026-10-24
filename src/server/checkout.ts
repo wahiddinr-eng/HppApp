@@ -83,17 +83,20 @@ export async function setCheckoutOrderStatus(id:string,status:"pending"|"failed"
     let userId:string|null=order.user_id;
     if(status==="complete"){
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",["email:"+order.customer_email]);
-      const existing=await client.query('SELECT id FROM "user" WHERE email=$1',[order.customer_email]);
+      const existing=order.user_id
+        ? await client.query('SELECT id FROM "user" WHERE id=$1',[order.user_id])
+        : await client.query('SELECT id FROM "user" WHERE email=$1',[order.customer_email]);
       userId=existing.rows[0]?.id||null;
       if(!userId){const created=await auth.api.createUser({body:{email:order.customer_email,name:order.customer_name,role:"user"}});userId=created.user.id;}
-      await client.query("INSERT INTO user_profile(user_id,display_name) VALUES($1,$2) ON CONFLICT(user_id) DO NOTHING",[userId,order.customer_name]);
+      await client.query("INSERT INTO user_profile(user_id,display_name,phone) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET phone=COALESCE(user_profile.phone,EXCLUDED.phone)",[userId,order.customer_name,order.customer_phone]);
       const profile=await client.query("SELECT account_status,role FROM user_profile WHERE user_id=$1",[userId]);
       if(profile.rows[0]?.role!=="user"||profile.rows[0]?.account_status==="suspended")throw new DomainError(422,"ACCOUNT_UNAVAILABLE","Akun customer perlu ditinjau sebelum akses diberikan.");
+      const account=await client.query<{email:string}>('SELECT email FROM "user" WHERE id=$1',[userId]);
       for(const feature of ["hpp_calculator","prompt_gallery"]){
         await client.query("INSERT INTO access_grant(user_id,source,purchase_id,item_id,product_id,feature_key,status,reason) VALUES($1,'kulinerkit_direct',$2,'bundle','kulinerkit_bundle',$3,'active','checkout_complete') ON CONFLICT(source,purchase_id,item_id,feature_key) DO UPDATE SET user_id=COALESCE(access_grant.user_id,EXCLUDED.user_id),status=CASE WHEN access_grant.reason LIKE 'admin:%' THEN access_grant.status ELSE 'active' END,reason=CASE WHEN access_grant.reason LIKE 'admin:%' THEN access_grant.reason ELSE 'checkout_complete' END,updated_at=now()",[userId,order.id,feature]);
       }
       const kind=profile.rows[0].account_status==="pending_activation"?"activation_request":"access_given";
-      await enqueueEmail(kind,userId!,order.customer_email,new URL("/login",baseUrl()).toString(),`checkout:${order.id}:${kind}:${version+1}`,client);
+      await enqueueEmail(kind,userId!,account.rows[0].email,new URL("/login",baseUrl()).toString(),`checkout:${order.id}:${kind}:${version+1}`,client);
       await enqueuePurchaseMetaEvent(client,order);
     }else if(order.status==="complete"){
       await client.query("UPDATE access_grant SET status='revoked',reason='checkout_' || $2::text,updated_at=now() WHERE source='kulinerkit_direct' AND purchase_id=$1 AND reason NOT LIKE 'admin:%'",[order.id,status]);

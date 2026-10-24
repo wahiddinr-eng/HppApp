@@ -27,7 +27,10 @@ export async function processOneWebhook():Promise<boolean>{
       let userId:string|undefined;let accountStatus:string|undefined;
       if(paid.length){
         await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",["email:"+purchase.customer.email]);
-        const users=await client.query('SELECT id FROM "user" WHERE email=$1',[purchase.customer.email]);userId=users.rows[0]?.id;
+        const linked=old?await client.query(`SELECT g.user_id FROM access_grant g JOIN "user" u ON u.id=g.user_id
+          WHERE g.source=$1 AND g.purchase_id=$2 AND g.user_id IS NOT NULL LIMIT 1`,[event.source,purchase.id]):{rows:[]};
+        userId=linked.rows[0]?.user_id;
+        if(!userId){const users=await client.query('SELECT id FROM "user" WHERE email=$1',[purchase.customer.email]);userId=users.rows[0]?.id;}
         if(!userId){const created=await auth.api.createUser({body:{email:purchase.customer.email,name:purchase.customer.name||purchase.customer.email,role:"user"}});userId=created.user.id;}
         await client.query("INSERT INTO user_profile(user_id,display_name) VALUES($1,$2) ON CONFLICT(user_id) DO NOTHING",[userId,purchase.customer.name]);
         const profile=await client.query("SELECT account_status FROM user_profile WHERE user_id=$1",[userId]);accountStatus=profile.rows[0].account_status;
@@ -44,7 +47,8 @@ export async function processOneWebhook():Promise<boolean>{
       }
       if(userId&&paid.length&&accountStatus!=="suspended"){
         const kind=accountStatus==="pending_activation"?"activation_request":"access_given";
-        await enqueueEmail(kind,userId,purchase.customer.email,process.env.APP_BASE_URL+"/login",event.source+":"+purchase.id+":"+kind,client);
+        const account=await client.query<{email:string}>('SELECT email FROM "user" WHERE id=$1',[userId]);
+        await enqueueEmail(kind,userId,account.rows[0].email,process.env.APP_BASE_URL+"/login",event.source+":"+purchase.id+":"+kind,client);
       }
       await client.query("INSERT INTO audit_log(action,target,reason) VALUES('purchase_processed',$1,$2)",[event.source+":"+purchase.id,event.type]);
       return finish(review?"review_required":"processed",review?"partial_refund":"completed");

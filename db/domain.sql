@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS guide_completed_at timestamptz;
+ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS phone text;
 CREATE TABLE IF NOT EXISTS access_grant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id text REFERENCES "user"(id),
   feature_key text NOT NULL DEFAULT 'hpp_calculator', source text NOT NULL,

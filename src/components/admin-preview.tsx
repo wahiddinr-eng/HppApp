@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock3, Copy, Link2, Mail, RefreshCw, Search, ShieldCheck, Webhook, X } from "lucide-react";
+import { Clock3, Copy, Link2, Mail, Pencil, RefreshCw, Search, ShieldCheck, Webhook, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { featureLabel, groupAccessGrants, type AdminGrant } from "@/lib/admin-access";
 import { PageTop } from "./shell";
 import styles from "./admin-preview.module.css";
 
-type Account = { id:string;email:string;name:string;account_status:string;grants:AdminGrant[] };
+type Account = { id:string;email:string;name:string;phone:string;account_status:string;grants:AdminGrant[] };
+type CustomerEdit = { id:string;name:string;email:string;phone:string;reason:string };
 type Job = { id:string;source?:string;event_id?:string;purchase_id?:string;kind?:string;recipient?:string;
   status:string;stage?:string;attempts:number;last_error:string|null;created_at:string;next_attempt:string };
 type Data = { accounts?:Account[];events?:Job[];emails?:Job[];worker?:{name:string;last_seen:string}[] };
@@ -27,6 +28,7 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
   const [busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
   const [activationLink,setActivationLink]=useState<ActivationLink>();
+  const [editing,setEditing]=useState<CustomerEdit>();
   const load=useCallback(async()=>{
     setLoading(true);
     try { setData(await api<Data>("/api/admin/"+area+"?"+new URLSearchParams({search}))); }
@@ -50,6 +52,15 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
     try { await navigator.clipboard.writeText(activationLink.url);setNotice("Tautan disalin. Kirim hanya kepada pemilik email akun tersebut."); }
     catch { setNotice("Gagal menyalin otomatis. Pilih dan salin tautan pada kotak secara manual."); }
   }
+  async function saveCustomer(){
+    if(!editing)return;
+    setBusy(true);setNotice("");
+    try {
+      const result=await api<{message:string}>("/api/admin/access",{method:"PATCH",body:JSON.stringify(editing)});
+      setEditing(undefined);setActivationLink(undefined);setNotice(result.message);await load();
+    } catch(error){setNotice(error instanceof Error?error.message:"Detail pengguna gagal disimpan.");}
+    finally{setBusy(false);}
+  }
   const jobs=(rows:Job[]|undefined,kind:"webhook"|"email")=><div className={styles.tableWrap}><table className={styles.table}>
     <thead><tr><th>{kind==="webhook"?"Event / pembelian":"Jenis / penerima"}</th><th>Status</th><th>Waktu</th><th>Detail</th><th>Tindakan</th></tr></thead>
     <tbody>{rows?.map(row=><tr key={row.id}>
@@ -62,7 +73,7 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
 
   return <>
     <PageTop eyebrow={area==="access"?"ADMIN / PENGGUNA":"ADMIN / OPERASIONAL"} title={area==="access"?"Pengguna & akses":"Integrasi & email"}
-      description={area==="access"?"Satu pembelian dapat memberi beberapa hak fitur. Tindakan akses tercatat dalam audit.":"Pantau webhook pembelian LRMobileID, antrean email, dan kesehatan worker."}
+      description={area==="access"?"Perbaiki detail customer dan kelola hak fitur. Semua perubahan dicatat dalam audit.":"Pantau webhook pembelian LRMobileID, antrean email, dan kesehatan worker."}
       actions={<button className="button secondary" disabled={loading} onClick={()=>void load()}><RefreshCw size={15}/>{loading?"Memuat...":"Perbarui data"}</button>}/>
     {notice&&<div className="form-message" role="status">{notice}</div>}
     {area==="access"?<>
@@ -71,15 +82,26 @@ export function AdminPreview({area}:{area:"access"|"integrations"}){
         <p>Tautan hanya ditampilkan di sini setelah dibuat. Tautan aktivasi sebelumnya tidak berlaku lagi. Bagikan secara pribadi kepada pemilik akun, bukan di grup atau halaman publik.</p>
         <div className={styles.activationActions}><input type="url" aria-label="Tautan aktivasi cadangan" value={activationLink.url} readOnly onFocus={event=>event.target.select()}/><button type="button" className="button primary" onClick={()=>void copyActivationLink()}><Copy size={15}/>Salin tautan</button></div>
       </section>}
-      <div className={styles.search}><Search size={18}/><label htmlFor="admin-account-search">Cari pengguna</label><input id="admin-account-search" type="search" value={search} onChange={event=>{setSearch(event.target.value);setActivationLink(undefined);}} placeholder="Masukkan email customer..."/></div>
+      <div className={styles.search}><Search size={18}/><label htmlFor="admin-account-search">Cari pengguna</label><input id="admin-account-search" type="search" value={search} onChange={event=>{setSearch(event.target.value);setActivationLink(undefined);setEditing(undefined);}} placeholder="Cari nama, email, atau nomor HP..."/></div>
       <p className={styles.helper}>Menampilkan maksimal 50 akun. Hak Kalkulator HPP dan Galeri Prompt dikelompokkan per pembelian.</p>
       {data?.accounts?.map(user=>{
         const purchases=groupAccessGrants(user.grants);
         return <section className={styles.account} key={user.id}>
-          <header className={styles.accountHead}><span className={styles.avatar}>{(user.name||user.email).slice(0,2).toUpperCase()}</span><div><h2>{user.name||user.email}</h2><p>{user.email}</p></div>
+          <header className={styles.accountHead}><span className={styles.avatar}>{(user.name||user.email).slice(0,2).toUpperCase()}</span><div><h2>{user.name||user.email}</h2><p>{user.email}</p><p>{user.phone||"Nomor HP belum diisi"}</p></div>
             <span className={`${styles.status} ${user.account_status==="active"?styles.good:styles.wait}`}>{accountStatus(user.account_status)}</span>
+            <button className="button secondary" type="button" disabled={busy} onClick={()=>{setEditing({id:user.id,name:user.name,email:user.email,phone:user.phone||"",reason:""});setActivationLink(undefined);}}><Pencil size={14}/> Edit detail</button>
             {user.account_status==="pending_activation"&&<><button className="button secondary" disabled={busy} onClick={()=>void act("resend_activation",user.id)}>Kirim ulang email</button><button className="button primary" disabled={busy} onClick={()=>void act("generate_activation_link",user.id)}>Buat tautan aktivasi</button></>}
           </header>
+          {editing?.id===user.id&&<form className={styles.editForm} onSubmit={event=>{event.preventDefault();void saveCustomer();}}>
+            <div className={styles.editIntro}><div><strong>Perbaiki detail pengguna</strong><p>Perubahan email membatalkan tautan lama dan mengeluarkan sesi login. Akun yang belum aktif akan menerima email aktivasi baru.</p></div><button type="button" aria-label="Tutup editor" onClick={()=>setEditing(undefined)}><X size={18}/></button></div>
+            <div className={styles.editFields}>
+              <label>Nama<input required minLength={2} maxLength={120} value={editing.name} onChange={event=>setEditing({...editing,name:event.target.value})}/></label>
+              <label>Email login<input required type="email" maxLength={254} value={editing.email} onChange={event=>setEditing({...editing,email:event.target.value})}/></label>
+              <label>Nomor HP<input type="tel" inputMode="tel" maxLength={30} placeholder="081234567890" value={editing.phone} onChange={event=>setEditing({...editing,phone:event.target.value})}/></label>
+              <label>Alasan perubahan<input required minLength={5} maxLength={500} placeholder="Contoh: Email salah ketik saat pembelian" value={editing.reason} onChange={event=>setEditing({...editing,reason:event.target.value})}/></label>
+            </div>
+            <div className={styles.editActions}><button className="button secondary" type="button" disabled={busy} onClick={()=>setEditing(undefined)}>Batal</button><button className="button primary" type="submit" disabled={busy}>{busy?"Menyimpan...":"Simpan detail"}</button></div>
+          </form>}
           <div className={styles.accountBody}><div className={styles.sectionTitle}><ShieldCheck size={16}/><strong>{purchases.length} pembelian terhubung</strong></div>
             {purchases.length?purchases.map(purchase=><div className={styles.purchase} key={JSON.stringify([purchase.source,purchase.purchaseId])}>
               <div className={styles.purchaseHead}><div><strong>Pembelian {purchase.purchaseId}</strong><small>Sumber: {purchase.source}</small></div><span>{purchase.grants.length} hak fitur</span></div>

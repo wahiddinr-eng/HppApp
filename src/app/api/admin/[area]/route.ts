@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { adminCustomerSchema, updateAdminCustomer } from "@/server/admin-customer";
 import { generateActivationLink } from "@/server/account";
 import { query,transaction } from "@/server/db";
 import { enqueueEmail } from "@/server/email";
@@ -31,7 +32,12 @@ export async function GET(request:Request,{params}:{params:Promise<{area:string}
   }
   if(area==="access"){
     const search=(new URL(request.url).searchParams.get("search")||"").slice(0,254);
-    const accounts=await query('SELECT u.id,u.email,u.name,p.account_status,p.role,p.business_name,p.created_at FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 AND u.email ILIKE $2 ORDER BY p.created_at DESC LIMIT 50',["user","%"+search+"%"]);
+    const accounts=await query(`SELECT u.id,u.email,COALESCE(NULLIF(p.display_name,''),u.name) AS name,p.account_status,p.role,p.business_name,p.created_at,
+      COALESCE(p.phone,(SELECT o.customer_phone FROM checkout_order o WHERE o.user_id=u.id AND o.customer_phone IS NOT NULL ORDER BY o.created_at DESC LIMIT 1),'') AS phone
+      FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE p.role=$1 AND
+      (u.email ILIKE $2 OR u.name ILIKE $2 OR p.display_name ILIKE $2 OR COALESCE(p.phone,'') ILIKE $2 OR
+      EXISTS(SELECT 1 FROM checkout_order o WHERE o.user_id=u.id AND o.customer_phone ILIKE $2))
+      ORDER BY p.created_at DESC LIMIT 50`,["user","%"+search+"%"]);
     const ids=accounts.rows.map(row=>row.id);const grants=ids.length?await query("SELECT id,user_id,source,purchase_id,item_id,product_id,feature_key,status,reason,created_at FROM access_grant WHERE user_id=ANY($1::text[]) ORDER BY created_at DESC",[ids]):{rows:[]};
     return privateJson({accounts:accounts.rows.map(user=>({...user,grants:grants.rows.filter(grant=>grant.user_id===user.id)}))});
   }
@@ -41,6 +47,14 @@ export async function GET(request:Request,{params}:{params:Promise<{area:string}
     const worker=await query("SELECT name,last_seen FROM worker_health");return privateJson({events:events.rows,emails:emails.rows,worker:worker.rows});
   }
   throw new DomainError(404,"NOT_FOUND","Endpoint tidak ditemukan.");
+}catch(error){return apiError(error);}}
+export async function PATCH(request:Request,{params}:{params:Promise<{area:string}>}){try{
+  checkOrigin(request);const actor=await requireActor(request,"admin");const {area}=await params;
+  if(area!=="access")throw new DomainError(404,"NOT_FOUND","Endpoint tidak ditemukan.");
+  await rateLimit("admin-edit-customer:"+actor.id,20,3600);
+  const parsed=adminCustomerSchema.safeParse(await readJson(request,4096));
+  if(!parsed.success)throw new DomainError(422,"INVALID_CUSTOMER","Periksa nama, email, nomor HP, dan alasan perubahan.");
+  return privateJson(await updateAdminCustomer(parsed.data,actor.id));
 }catch(error){return apiError(error);}}
 export async function POST(request:Request,{params}:{params:Promise<{area:string}>}){try{
   checkOrigin(request);const actor=await requireActor(request,"admin");const {area}=await params;

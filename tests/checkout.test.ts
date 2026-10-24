@@ -15,15 +15,16 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
   process.env.META_PIXEL_ID="123456789012345";
   process.env.META_CAPI_ACCESS_TOKEN="test-token-not-sent-to-meta";
   delete process.env.SMTP_HOST;
-  const {auth}=await import("../src/server/auth");
+  const {auth,activationAuth}=await import("../src/server/auth");
   const {getMigrations}=await import("better-auth/db/migration");
   const {query,getPool,transaction}=await import("../src/server/db");
   const {createCheckoutOrder,findCheckoutOrder,setCheckoutOrderStatus,getCheckoutSettings,orderSchema}=await import("../src/server/checkout");
   const {buildCheckoutEmail}=await import("../src/server/checkout-email");
-  const {processOneMetaEvent,enqueuePageMetaEvent,purchaseBrowserEvent}=await import("../src/server/meta");
+  const {enqueuePageMetaEvent,purchaseBrowserEvent}=await import("../src/server/meta");
   const paymentRoute=await import("../src/app/api/checkout/orders/[token]/route");
   const {saveMetaSettings,adminMetaSettings,metaConfig}=await import("../src/server/meta-settings");
   const {saveAdminPushSubscription,enqueueOrderPush}=await import("../src/server/admin-push");
+  const {adminCustomerSchema,updateAdminCustomer}=await import("../src/server/admin-customer");
   const suffix=randomUUID();
   const email=`checkout-${suffix}@example.test`;
   try{
@@ -111,26 +112,35 @@ test("Direct checkout: price snapshot, emails, payment, grants, reversal",{skip:
     assert.equal(meta.rows[0].status,"cancelled");
     assert.equal(meta.rows[0].payload,null);
     assert.equal(await purchaseBrowserEvent(id),null);
+    await activationAuth.api.requestPasswordReset({body:{email,redirectTo:"http://localhost:3000/activate"}});
+    assert.ok((await query("SELECT count(*)::int n FROM verification WHERE value=$1 AND identifier LIKE 'reset-password:%'",[buyer])).rows[0].n>0);
+    const correctedEmail=`corrected-${suffix}@example.test`;
+    const customerEdit=adminCustomerSchema.parse({id:buyer,name:"Pembeli Terkoreksi",email:correctedEmail,phone:"0813-4567-8901",reason:"Data checkout salah ketik"});
+    await assert.rejects(()=>updateAdminCustomer({...customerEdit,email:admin.user.email},admin.user.id),{code:"EMAIL_IN_USE"});
+    await assert.rejects(()=>updateAdminCustomer({...customerEdit,id:admin.user.id},admin.user.id),{code:"CUSTOMER_NOT_FOUND"});
+    await updateAdminCustomer(customerEdit,admin.user.id);
+    assert.deepEqual((await query('SELECT u.email,u.name,u."emailVerified",p.display_name,p.phone FROM "user" u JOIN user_profile p ON p.user_id=u.id WHERE u.id=$1',[buyer])).rows[0],
+      {email:correctedEmail,name:"Pembeli Terkoreksi",emailVerified:false,display_name:"Pembeli Terkoreksi",phone:"+6281345678901"});
+    assert.equal((await query("SELECT count(*)::int n FROM email_outbox WHERE user_id=$1 AND kind='activation_request' AND recipient=$2 AND status='cancelled'",[buyer,email])).rows[0].n,1);
+    assert.equal((await query("SELECT count(*)::int n FROM email_outbox WHERE user_id=$1 AND kind='activation_request' AND recipient=$2 AND status='pending'",[buyer,correctedEmail])).rows[0].n,1);
+    assert.equal((await query("SELECT count(*)::int n FROM verification WHERE value=$1 AND identifier LIKE 'reset-password:%'",[buyer])).rows[0].n,0);
+    assert.equal((await query("SELECT count(*)::int n FROM account_token WHERE user_id=$1 AND kind='activation' AND revoked_at IS NOT NULL",[buyer])).rows[0].n,1);
+    assert.equal((await query("SELECT count(*)::int n FROM audit_log WHERE actor_id=$1 AND action='edit_customer' AND target=$2",[admin.user.id,buyer])).rows[0].n,1);
     await setCheckoutOrderStatus(id,"complete",3,"admin-test","Dana diterima ulang");
+    assert.equal((await query("SELECT user_id FROM checkout_order WHERE id=$1",[id])).rows[0].user_id,buyer);
+    assert.equal((await query("SELECT recipient FROM email_outbox WHERE dedup_key=$1",[`checkout:${id}:activation_request:4`])).rows[0].recipient,correctedEmail);
     meta=await query("SELECT event_id,status,payload FROM meta_event_outbox WHERE order_id=$1",[id]);
     assert.equal(meta.rows.length,1);
     assert.equal(meta.rows[0].status,"pending");
-    const originalFetch=globalThis.fetch;
-    const calls:{url:string;headers:HeadersInit;body:string}[]=[];
-    globalThis.fetch=async(input,init)=>{calls.push({url:String(input),headers:init?.headers||{},body:String(init?.body)});return Response.json({events_received:1});};
-    try { assert.equal(await processOneMetaEvent(),true); }
-    finally { globalThis.fetch=originalFetch; }
-    assert.equal(calls.length,1);
-    assert.match(calls[0].url,/graph\.facebook\.com\/v26\.0\/123456789012345\/events$/);
-    assert.equal(JSON.parse(calls[0].body).data[0].event_id,meta.rows[0].event_id);
-    assert.equal(JSON.parse(calls[0].body).test_event_code,"TEST-KK");
-    assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE order_id=$1",[id])).rows[0].status,"sent");
-    assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE order_id=$1",[id])).rows[0].payload,null);
+    // Transport is tested with a fake HTTPS request in meta-transport.test.ts.
+    // Keep this integration test offline; replacing settings cancels queued events.
     await assert.rejects(()=>setCheckoutOrderStatus(id,"complete",4,"admin-test","Ulang"),{code:"STATUS_UNCHANGED"});
     const pageEventId=randomUUID();
     await enqueuePageMetaEvent("ViewContent",pageEventId,125000,new Request("http://localhost:3000/",{headers:{"user-agent":"Meta test"}}));
     assert.equal((await query("SELECT status,pixel_id FROM meta_event_outbox WHERE event_id=$1",[pageEventId])).rows[0].status,"pending");
     await saveMetaSettings({version:1,enabled:true,pixelId:"987654321012345",graphApiVersion:"v26.0",testEventCode:"",capiToken:"replacement-test-token"},admin.user.id);
+    assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE order_id=$1",[id])).rows[0].status,"cancelled");
+    assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE order_id=$1",[id])).rows[0].payload,null);
     assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE event_id=$1",[pageEventId])).rows[0].status,"cancelled");
     assert.equal((await query("SELECT status,payload FROM meta_event_outbox WHERE event_id=$1",[pageEventId])).rows[0].payload,null);
     assert.equal((await metaConfig()).pixelId,"987654321012345");
