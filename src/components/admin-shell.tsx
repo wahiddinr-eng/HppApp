@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, ChartNoAxesCombined, CreditCard, Images, LayoutDashboard, LogOut, MailCheck, Settings2, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowLeft, ChartNoAxesCombined, CreditCard, Images, LayoutDashboard, LogOut, MailCheck, MessageSquareQuote, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { revokeAdminPushForCurrentDevice } from "./admin-push-controls";
 import styles from "./admin-shell.module.css";
@@ -12,6 +12,7 @@ const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, description: "Ringkasan operasional" },
   { href: "/admin/transactions", label: "Transaksi", icon: CreditCard, description: "Pesanan dan verifikasi bayar" },
   { href: "/admin/checkout", label: "Pengaturan checkout", icon: Settings2, description: "Harga, QRIS, dan rekening" },
+  { href: "/admin/testimonials", label: "Testimoni landing page", icon: MessageSquareQuote, description: "Cerita pelanggan dan izin tayang" },
   { href: "/admin/meta", label: "Meta Pixel & CAPI", icon: ChartNoAxesCombined, description: "Pengaturan iklan dan pengujian" },
   { href: "/admin/access", label: "Pengguna & akses", icon: UsersRound, description: "Akun dan hak fitur" },
   { href: "/admin/integrations", label: "Webhook & email", icon: MailCheck, description: "Pembelian LRMobileID dan email" },

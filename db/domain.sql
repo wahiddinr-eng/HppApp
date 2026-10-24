@@ -47,7 +47,37 @@ CREATE TABLE IF NOT EXISTS checkout_settings (
   qris_image_key text, qris_image_mime text,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE checkout_settings ADD COLUMN IF NOT EXISTS promo_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE checkout_settings ADD COLUMN IF NOT EXISTS promo_limit integer NOT NULL DEFAULT 100 CHECK (promo_limit BETWEEN 1 AND 100000);
+ALTER TABLE checkout_settings ADD COLUMN IF NOT EXISTS promo_campaign_id uuid NOT NULL DEFAULT gen_random_uuid();
+ALTER TABLE checkout_settings ADD COLUMN IF NOT EXISTS promo_deadline timestamptz;
+ALTER TABLE checkout_settings ADD COLUMN IF NOT EXISTS promo_name text NOT NULL DEFAULT '' CHECK (length(promo_name) <= 80);
 INSERT INTO checkout_settings(id) VALUES(1) ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS checkout_promo_campaign (
+  id uuid PRIMARY KEY,
+  name text NOT NULL DEFAULT '' CHECK (length(name) <= 80),
+  quota_limit integer NOT NULL CHECK (quota_limit BETWEEN 1 AND 100000),
+  deadline timestamptz,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  ended_at timestamptz,
+  created_by text REFERENCES "user"(id),
+  CHECK (ended_at IS NULL OR ended_at >= started_at)
+);
+INSERT INTO checkout_promo_campaign(id,name,quota_limit,deadline)
+SELECT promo_campaign_id,promo_name,promo_limit,promo_deadline FROM checkout_settings WHERE id=1
+ON CONFLICT(id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS landing_testimonial (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_name text NOT NULL CHECK (length(trim(customer_name)) BETWEEN 2 AND 100),
+  business_name text NOT NULL DEFAULT '',
+  quote text NOT NULL CHECK (length(trim(quote)) BETWEEN 10 AND 1000),
+  consent_confirmed boolean NOT NULL DEFAULT false,
+  published boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (NOT published OR consent_confirmed)
+);
+CREATE INDEX IF NOT EXISTS landing_testimonial_public ON landing_testimonial(sort_order,created_at) WHERE published;
 CREATE TABLE IF NOT EXISTS meta_settings (
   id integer PRIMARY KEY DEFAULT 1 CHECK (id=1),
   enabled boolean NOT NULL DEFAULT false,
@@ -73,6 +103,8 @@ CREATE TABLE IF NOT EXISTS checkout_order (
 );
 ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS customer_phone text;
 ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS meta_context jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE checkout_order ADD COLUMN IF NOT EXISTS promo_campaign_id uuid;
+CREATE INDEX IF NOT EXISTS checkout_order_promo ON checkout_order(promo_campaign_id,status) WHERE promo_campaign_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS checkout_order_created ON checkout_order(created_at DESC);
 CREATE INDEX IF NOT EXISTS checkout_order_email ON checkout_order(customer_email);
 CREATE TABLE IF NOT EXISTS admin_push_subscription (

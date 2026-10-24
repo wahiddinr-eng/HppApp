@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { auth } from "./auth";
@@ -16,6 +16,11 @@ export const checkoutSettingsSchema = z.object({
   bankName: z.string().trim().max(100),
   accountNumber: z.string().trim().max(60),
   accountHolder: z.string().trim().max(100),
+  expectedCampaignId: z.uuid(),
+  promoEnabled: z.boolean(),
+  promoName: z.string().trim().max(80).refine(value=>!/[\r\n\p{Cc}]/u.test(value),"Nama promo tidak boleh mengandung karakter kontrol."),
+  promoLimit: z.number().int().min(1).max(100000),
+  promoDeadline: z.iso.datetime({offset:true}).nullable(),
 }).refine(value => value.comparePrice>value.price,{message:"Harga coret harus lebih besar dari harga jual.",path:["comparePrice"]});
 
 export const orderSchema=z.object({
@@ -29,7 +34,15 @@ export const orderSchema=z.object({
   website:z.string().max(100).optional(),
 });
 
-export type CheckoutSettings={price:number;compare_price:number;enabled:boolean;bank_name:string;account_number:string;account_holder:string;qris_image_key:string|null;qris_image_mime:string|null};
+export const newPromoCampaignSchema=z.object({
+  expectedCampaignId:z.uuid(),
+  name:z.string().trim().max(80).refine(value=>!/[\r\n\p{Cc}]/u.test(value),"Nama promo tidak boleh mengandung karakter kontrol."),
+  limit:z.number().int().min(1).max(100000),
+  deadline:z.iso.datetime({offset:true}).nullable(),
+  confirmation:z.literal("MULAI_PROMO_BARU"),
+});
+
+export type CheckoutSettings={price:number;compare_price:number;enabled:boolean;bank_name:string;account_number:string;account_holder:string;qris_image_key:string|null;qris_image_mime:string|null;promo_enabled:boolean;promo_name:string;promo_limit:number;promo_campaign_id:string;promo_deadline:Date|null};
 
 export async function getCheckoutSettings(client?:PoolClient):Promise<CheckoutSettings>{
   const result=await (client?client.query<CheckoutSettings>("SELECT * FROM checkout_settings WHERE id=1 FOR UPDATE"):query<CheckoutSettings>("SELECT * FROM checkout_settings WHERE id=1"));
@@ -37,8 +50,39 @@ export async function getCheckoutSettings(client?:PoolClient):Promise<CheckoutSe
   return result.rows[0];
 }
 
-export function publicCheckoutSettings(settings:CheckoutSettings){
-  return {price:settings.price,comparePrice:settings.compare_price,enabled:settings.enabled,
+export async function getPromoStatus(settings:CheckoutSettings,client?:PoolClient){
+  const result=await (client?client.query<{reserved:number}>("SELECT count(*)::int AS reserved FROM checkout_order WHERE promo_campaign_id=$1 AND status IN ('pending','complete')",[settings.promo_campaign_id]):query<{reserved:number}>("SELECT count(*)::int AS reserved FROM checkout_order WHERE promo_campaign_id=$1 AND status IN ('pending','complete')",[settings.promo_campaign_id]));
+  const reserved=result.rows[0]?.reserved??0;
+  const remaining=Math.max(0,settings.promo_limit-reserved);
+  const expired=Boolean(settings.promo_deadline&&settings.promo_deadline.getTime()<=Date.now());
+  return {enabled:settings.promo_enabled,name:settings.promo_name,limit:settings.promo_limit,remaining,deadline:settings.promo_deadline?.toISOString()??null,active:settings.promo_enabled&&remaining>0&&!expired,expired};
+}
+
+export async function getPromoCampaignHistory(){
+  const result=await query<{id:string;name:string;quota_limit:number;deadline:Date|null;started_at:Date;ended_at:Date|null;completed:number;pending:number;failed:number}>("SELECT c.id,c.name,c.quota_limit,c.deadline,c.started_at,c.ended_at,count(o.id) FILTER (WHERE o.status='complete')::int AS completed,count(o.id) FILTER (WHERE o.status='pending')::int AS pending,count(o.id) FILTER (WHERE o.status='failed')::int AS failed FROM checkout_promo_campaign c LEFT JOIN checkout_order o ON o.promo_campaign_id=c.id GROUP BY c.id ORDER BY c.started_at DESC,c.id DESC LIMIT 20");
+  return result.rows;
+}
+
+export async function startNewPromoCampaign(input:z.infer<typeof newPromoCampaignSchema>,actorId:string){
+  if(input.deadline&&new Date(input.deadline).getTime()<=Date.now())throw new DomainError(422,"PROMO_DEADLINE_PAST","Batas waktu promo baru harus di masa depan.");
+  return transaction(async client=>{
+    const current=await getCheckoutSettings(client);
+    if(current.promo_campaign_id!==input.expectedCampaignId)throw new DomainError(409,"PROMO_CHANGED","Promo sudah berubah. Muat ulang pengaturan sebelum memulai promo baru.");
+    if(!current.enabled)throw new DomainError(422,"CHECKOUT_CLOSED","Buka checkout sebelum memulai promo baru.");
+    const pending=await client.query<{n:number}>("SELECT count(*)::int AS n FROM checkout_order WHERE promo_campaign_id=$1 AND status='pending'",[current.promo_campaign_id]);
+    if((pending.rows[0]?.n??0)>0)throw new DomainError(409,"PROMO_PENDING_ORDERS","Masih ada pesanan promo menunggu pembayaran. Selesaikan atau tandai failed sebelum memulai promo baru.");
+    const old=await client.query("UPDATE checkout_promo_campaign SET ended_at=now() WHERE id=$1 AND ended_at IS NULL RETURNING id",[current.promo_campaign_id]);
+    if(!old.rowCount)throw new DomainError(503,"PROMO_HISTORY_MISSING","Riwayat promo belum siap. Jalankan migrasi database.");
+    const id=randomUUID();
+    await client.query("INSERT INTO checkout_promo_campaign(id,name,quota_limit,deadline,created_by) VALUES($1,$2,$3,$4,$5)",[id,input.name,input.limit,input.deadline,actorId]);
+    await client.query("UPDATE checkout_settings SET promo_campaign_id=$1,promo_name=$2,promo_limit=$3,promo_deadline=$4,promo_enabled=true,updated_at=now() WHERE id=1",[id,input.name,input.limit,input.deadline]);
+    await client.query("INSERT INTO audit_log(actor_id,action,target,reason) VALUES($1,'promo_campaign_started',$2,$3)",[actorId,id,`previous:${current.promo_campaign_id}`]);
+    return {id,message:"Promo baru dimulai. Kuota kembali penuh untuk promo ini."};
+  });
+}
+
+export function publicCheckoutSettings(settings:CheckoutSettings,promo?:Awaited<ReturnType<typeof getPromoStatus>>){
+  return {price:settings.price,comparePrice:settings.compare_price,enabled:settings.enabled&&(!promo?.enabled||promo.active),promo:promo??null,
     methods:{qris:Boolean(settings.qris_image_key),bank:Boolean(settings.bank_name&&settings.account_number&&settings.account_holder)}};
 }
 
@@ -50,12 +94,18 @@ export async function createCheckoutOrder(input:z.infer<typeof orderSchema>,meta
   return transaction(async client=>{
     const settings=await getCheckoutSettings(client);
     if(!settings.enabled)throw new DomainError(503,"CHECKOUT_CLOSED","Checkout belum dibuka. Silakan hubungi tim KulinerKit.");
+    const promo=await getPromoStatus(settings,client);
+    if(promo.enabled&&!promo.active)throw new DomainError(409,"PROMO_ENDED","Kuota atau masa promo telah berakhir. Silakan hubungi tim KulinerKit.");
+    if(promo.enabled){
+      const duplicate=await client.query("SELECT 1 FROM checkout_order WHERE promo_campaign_id=$1 AND customer_email=$2 AND status IN ('pending','complete') LIMIT 1",[settings.promo_campaign_id,input.email]);
+      if(duplicate.rowCount)throw new DomainError(409,"PROMO_ALREADY_RESERVED","Email ini sudah memiliki pesanan promo. Periksa email untuk tautan pembayaran atau hubungi tim KulinerKit.");
+    }
     if(input.method==="qris"&&!settings.qris_image_key || input.method==="bank"&&!(settings.bank_name&&settings.account_number&&settings.account_holder))
       throw new DomainError(422,"PAYMENT_METHOD_UNAVAILABLE","Metode pembayaran belum tersedia.");
     const token=randomBytes(32).toString("hex");
     const code=`KK-${randomBytes(6).toString("hex").toUpperCase()}`;
     const snapshot=input.method==="qris"?{imageKey:settings.qris_image_key,imageMime:settings.qris_image_mime}:{bankName:settings.bank_name,accountNumber:settings.account_number,accountHolder:settings.account_holder};
-    const result=await client.query<{id:string}>("INSERT INTO checkout_order(code,token_hash,customer_name,customer_email,customer_phone,payment_method,price,compare_price,payment_snapshot,meta_context) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",[code,tokenHash(token),input.name,input.email,input.phone,input.method,settings.price,settings.compare_price,JSON.stringify(snapshot),JSON.stringify(metaContext)]);
+    const result=await client.query<{id:string}>("INSERT INTO checkout_order(code,token_hash,customer_name,customer_email,customer_phone,payment_method,price,compare_price,payment_snapshot,meta_context,promo_campaign_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",[code,tokenHash(token),input.name,input.email,input.phone,input.method,settings.price,settings.compare_price,JSON.stringify(snapshot),JSON.stringify(metaContext),promo.enabled?settings.promo_campaign_id:null]);
     const url=paymentUrl(token);
     const payload={code,name:input.name,phone:input.phone,method:input.method,price:settings.price,url};
     await client.query("INSERT INTO email_outbox(kind,recipient,dedup_key,payload) VALUES('checkout_payment',$1,$2,$3)",[input.email,`checkout:${result.rows[0].id}:customer`,JSON.stringify(payload)]);

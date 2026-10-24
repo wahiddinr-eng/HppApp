@@ -5,6 +5,7 @@ import { LandingNav } from "./landing-nav";
 import { LandingDemo } from "./landing-demo";
 import { LandingOffer } from "./landing-offer";
 import { LandingPromptComparison } from "./landing-prompt-comparison";
+import { LandingTestimonials } from "./landing-testimonials";
 import styles from "./landing.module.css";
 
 const faqs = [
@@ -96,6 +97,8 @@ export function LandingPage() {
         <article><span className={styles.stepNumber}>02</span><h3>Siapkan cara menjualnya</h3><p>Cek harga di setiap kanal, tentukan target usaha, lalu cari ide visual di Galeri Prompt.</p><span className={styles.stepTag}><Sparkles size={14} /> Saat menyiapkan penawaran</span></article>
         <article><span className={styles.stepNumber}>03</span><h3>Catat, pahami, perbaiki</h3><p>Isi rekap harian. Gunakan riwayat penjualan untuk menilai menu dan kanal yang layak difokuskan.</p><span className={styles.stepTag}><PieChart size={14} /> Setelah mulai jualan</span></article>
       </div></section>
+
+      <LandingTestimonials />
 
       <section className={`${styles.container} ${styles.accessSection}`} id="mulai" aria-labelledby="access-title"><div className={styles.accessCopy}><span className={styles.eyebrow}>BEKAL USAHA ANDA BERIKUTNYA</span><h2 id="access-title">Resepnya sudah punya.<br />Sekarang, buat usahanya<br /><em>lebih terarah.</em></h2><p>Kerja keras di dapur layak ditemani keputusan yang lebih jelas. Mulai membangun kebiasaan usaha yang rapi bersama KulinerKit.</p><div className={styles.accessPromise}><MonitorSmartphone size={22} /><span>Satu ruang usaha.<br /><strong>Bisa dibuka dari HP dan laptop Anda.</strong></span></div></div>
         <div className={styles.accessCard}><div className={styles.accessCardHeading}><span className={styles.brandMark} aria-hidden="true">k<span>k</span></span><div><h3>KulinerKit</h3><small>by LRMobileID</small><p>Perangkat usaha kuliner Anda.</p></div></div><div className={styles.accessIncluded}><span>YANG ADA DI DALAM TOOLKIT</span>{["Kalkulator HPP & report PDF / Excel", "Bahan & riwayat perubahan harga", "Simulasi harga per kanal", "Target untung & titik impas", "Galeri Prompt untuk promosi", "Rekap harian & analisis penjualan"].map(item => <div key={item}><Check size={16} /><span>{item}</span></div>)}</div><LandingOffer/><p className={styles.accessNote}>Sekali bayar. Akses diaktifkan setelah pembayaran diverifikasi admin.</p><Link href="/login" className={styles.existingAccount}>Sudah punya akun? <strong>Masuk di sini <ArrowRight size={13} /></strong></Link></div>
