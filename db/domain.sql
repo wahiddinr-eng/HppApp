@@ -78,6 +78,21 @@ CREATE TABLE IF NOT EXISTS landing_testimonial (
   CHECK (NOT published OR consent_confirmed)
 );
 CREATE INDEX IF NOT EXISTS landing_testimonial_public ON landing_testimonial(sort_order,created_at) WHERE published;
+CREATE TABLE IF NOT EXISTS landing_page (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  title text NOT NULL,
+  seo_description text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
+  meta_view_content_enabled boolean NOT NULL DEFAULT false,
+  blocks jsonb NOT NULL DEFAULT '[]'::jsonb,
+  version integer NOT NULL DEFAULT 1,
+  published_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE landing_page ADD COLUMN IF NOT EXISTS meta_view_content_enabled boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS landing_page_status ON landing_page(status,updated_at DESC);
 CREATE TABLE IF NOT EXISTS meta_settings (
   id integer PRIMARY KEY DEFAULT 1 CHECK (id=1),
   enabled boolean NOT NULL DEFAULT false,

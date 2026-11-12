@@ -47,11 +47,12 @@ function initPixel(pixelId: string) {
   return target.fbq;
 }
 
-export function MetaPageEvent({ name, price }: { name: EventName; price: number }) {
-  const tracked = useRef(false);
+export function MetaPageEvent({ name, price, pagePath }: { name: EventName; price: number; pagePath?: string }) {
+  const tracked = useRef<string | null>(null);
   useEffect(() => {
-    if (tracked.current || !Number.isFinite(price) || price <= 0) return;
-    tracked.current = true;
+    const eventKey = `${name}:${pagePath || ""}`;
+    if (tracked.current === eventKey || !Number.isFinite(price) || price <= 0) return;
+    tracked.current = eventKey;
     // Keep the ad click through an immediate SPA navigation while config loads.
     rememberClickId();
     void fetch("/api/meta/events", { cache: "no-store" })
@@ -73,12 +74,12 @@ export function MetaPageEvent({ name, price }: { name: EventName; price: number 
           submitted = true;
           window.removeEventListener("pagehide", submit);
           void fetch("/api/meta/events", { method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, eventId }), keepalive: true }).catch(() => undefined);
+            body: JSON.stringify({ name, eventId, ...(pagePath ? { pagePath } : {}) }), keepalive: true }).catch(() => undefined);
         };
         window.addEventListener("pagehide", submit, { once: true });
         window.setTimeout(submit, 500);
       }).catch(() => undefined);
-  }, [name, price]);
+  }, [name, price, pagePath]);
   return null;
 }
 

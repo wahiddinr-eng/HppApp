@@ -40,17 +40,17 @@ function customData(value: number, orderCode?: string) {
     ...(orderCode ? { order_id: orderCode } : {}) };
 }
 
-function sourceUrl(path: "/" | "/checkout" | "/pay/verified") { return new URL(path, process.env.APP_BASE_URL!).toString(); }
-export function buildPageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, context: MetaContext): MetaEvent {
+function sourceUrl(path: "/" | "/checkout" | "/pay/verified" | `/landing/${string}`) { return new URL(path, process.env.APP_BASE_URL!).toString(); }
+export function buildPageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, context: MetaContext, pagePath?: `/landing/${string}`): MetaEvent {
   return { event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: eventId,
-    event_source_url: sourceUrl(name === "ViewContent" ? "/" : "/checkout"), action_source: "website",
+    event_source_url: sourceUrl(name === "ViewContent" ? pagePath || "/" : "/checkout"), action_source: "website",
     user_data: context, custom_data: customData(price) };
 }
 
-export async function enqueuePageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, request: Request) {
+export async function enqueuePageMetaEvent(name: "ViewContent" | "InitiateCheckout", eventId: string, price: number, request: Request, pagePath?: `/landing/${string}`) {
   const config = await metaConfig();
   if (!config.enabled) return;
-  const payload = buildPageMetaEvent(name, eventId, price, captureMetaContext(request));
+  const payload = buildPageMetaEvent(name, eventId, price, captureMetaContext(request), pagePath);
   await query("INSERT INTO meta_event_outbox(event_id,event_name,pixel_id,test_event_code,event_time,payload) VALUES($1,$2,$3,$4,to_timestamp($5),$6) ON CONFLICT(event_id) DO NOTHING",
     [eventId, name, config.pixelId, config.testEventCode, payload.event_time, JSON.stringify(payload)]);
 }

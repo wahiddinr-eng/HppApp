@@ -46,6 +46,12 @@ test("Meta Click ID is carried in CAPI user_data for ViewContent and InitiateChe
   }
 });
 
+test("landing page ViewContent uses its published URL in CAPI", () => {
+  process.env.APP_BASE_URL = "https://hpp.lrmobileid.com";
+  const event = buildPageMetaEvent("ViewContent", "landing-event", 125000, {}, "/landing/promo-kulinerkit");
+  assert.equal(event.event_source_url, "https://hpp.lrmobileid.com/landing/promo-kulinerkit");
+});
+
 test("Meta Click ID validation rejects absent and malformed IDs", () => {
   assert.equal(validFbclid("AbCd_123.-"), true);
   assert.equal(validFbclid(""), false);
